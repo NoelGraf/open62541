@@ -301,6 +301,15 @@ class Value(object):
                     return extobj
 
                 extobj.value = []
+                remove_list = []
+                if ebodypart.localName == "EncodingMask":
+                    if ebodypart.firstChild.data == '0':
+                        for i in range(0,len(enc)):
+                            if enc[i][len(enc[i])-1] == 'true':
+                                remove_list.append(i)
+                        for i in remove_list:
+                            # Adjust the indicies in the remove list after each deletion!
+                            del enc[i]
                 for e in enc:
                     extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent,
                                                                      alias=None, encodingPart=e))
