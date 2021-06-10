@@ -505,7 +505,7 @@ class DataTypeNode(Node):
                 if not targetNode.isEncodable():
                     self.__encodable__ = False
                 else:
-                    self.__baseTypeEncoding__ = self.__baseTypeEncoding__ + [self.browseName.name, subenc, None]
+                    self.__baseTypeEncoding__ = self.__baseTypeEncoding__ + [self.browseName.name, subenc, None , 'false']
             if len(self.__baseTypeEncoding__) == 0:
                 logger.debug(prefix + "No viable definition for " + str(self.browseName) + " " + str(self.id) + " found.")
                 self.__encodable__ = False
@@ -589,7 +589,7 @@ class DataTypeNode(Node):
                     if isOptional:
                         self.__baseTypeEncoding__ = self.__baseTypeEncoding__ + [[fname, subenc, valueRank, 'true']]
                     else:
-                        self.__baseTypeEncoding__ = self.__baseTypeEncoding__ + [[fname, subenc, valueRank]]
+                        self.__baseTypeEncoding__ = self.__baseTypeEncoding__ + [[fname, subenc, valueRank, 'false']]
                     if not dtnode.isEncodable():
                         # If we inherit an encoding from an unencodable node, this node is
                         # also not encodable
