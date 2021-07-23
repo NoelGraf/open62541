@@ -21,6 +21,11 @@
 #include "ua_server_internal.h"
 #include "ua_services.h"
 
+static UA_StatusCode
+setMethodNode_callback(UA_Server *server,
+                       const UA_NodeId methodNodeId,
+                       UA_MethodCallback methodCallback);
+
 /*********************/
 /* Edit Node Context */
 /*********************/
@@ -2578,24 +2583,47 @@ editMethodCallback(UA_Server *server, UA_Session* session,
     return UA_STATUSCODE_GOOD;
 }
 
-UA_StatusCode
+static UA_StatusCode
 setMethodNode_callback(UA_Server *server,
-                                 const UA_NodeId methodNodeId,
-                                 UA_MethodCallback methodCallback) {
+                       const UA_NodeId methodNodeId,
+                       UA_MethodCallback methodCallback) {
     UA_LOCK_ASSERT(&server->serviceMutex, 1);
     return UA_Server_editNode(server, &server->adminSession, &methodNodeId,
-                                              (UA_EditNodeCallback)editMethodCallback,
-                                              (void*)(uintptr_t)methodCallback);
+                              (UA_EditNodeCallback)editMethodCallback,
+                              (void*)(uintptr_t)methodCallback);
 }
 
 UA_StatusCode
-UA_Server_setMethodNode_callback(UA_Server *server,
-                                 const UA_NodeId methodNodeId,
-                                 UA_MethodCallback methodCallback) {
+UA_Server_setMethodNodeCallback(UA_Server *server,
+                                const UA_NodeId methodNodeId,
+                                UA_MethodCallback methodCallback) {
     UA_LOCK(&server->serviceMutex);
     UA_StatusCode retVal = setMethodNode_callback(server, methodNodeId, methodCallback);
     UA_UNLOCK(&server->serviceMutex);
     return retVal;
+}
+
+UA_StatusCode
+UA_Server_getMethodNodeCallback(UA_Server *server,
+                                const UA_NodeId methodNodeId,
+                                UA_MethodCallback *outMethodCallback) {
+    UA_LOCK(&server->serviceMutex);
+    const UA_Node *node = UA_NODESTORE_GET(server, &methodNodeId);
+    if(!node) {
+        UA_UNLOCK(&server->serviceMutex);
+        return UA_STATUSCODE_BADNODEIDUNKNOWN;
+    }
+
+    if(node->head.nodeClass != UA_NODECLASS_METHOD) {
+        UA_NODESTORE_RELEASE(server, node);
+        UA_UNLOCK(&server->serviceMutex);
+        return UA_STATUSCODE_BADNODECLASSINVALID;
+    }
+
+    *outMethodCallback = node->methodNode.method;
+    UA_NODESTORE_RELEASE(server, node);
+    UA_UNLOCK(&server->serviceMutex);
+    return UA_STATUSCODE_GOOD;
 }
 
 #endif
