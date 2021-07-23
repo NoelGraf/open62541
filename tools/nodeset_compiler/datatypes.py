@@ -132,7 +132,7 @@ class Value(object):
             logger.error("Expected XML Element, but got junk...")
             return
 
-    def parseXMLEncoding(self, xmlvalue, parentDataTypeNode, parent):
+    def parseXMLEncoding(self, xmlvalue, parentDataTypeNode, parent, parser):
         self.checkXML(xmlvalue)
         if not "value" in xmlvalue.localName.lower():
             logger.error("Expected <Value> , but found " + xmlvalue.localName + \
@@ -153,15 +153,15 @@ class Value(object):
             for el in xmlvalue.childNodes:
                 if not el.nodeType == el.ELEMENT_NODE:
                     continue
-                val = self.__parseXMLSingleValue(el, parentDataTypeNode, parent)
+                val = self.__parseXMLSingleValue(el, parentDataTypeNode, parent, parser)
                 if val is None:
                     self.value = []
                     return
                 self.value.append(val)
         else:
-            self.value = [self.__parseXMLSingleValue(xmlvalue, parentDataTypeNode, parent)]
+            self.value = [self.__parseXMLSingleValue(xmlvalue, parentDataTypeNode, parent, parser)]
 
-    def __parseXMLSingleValue(self, xmlvalue, parentDataTypeNode, parent, alias=None, encodingPart=None, valueRank=None):
+    def __parseXMLSingleValue(self, xmlvalue, parentDataTypeNode, parent, parser, alias=None, encodingPart=None, valueRank=None):
         # Parse an encoding list such as enc = [[Int32], ['Duration', ['DateTime']]],
         # returning a possibly aliased variable or list of variables.
         # Keep track of aliases, as ['Duration', ['Hawaii', ['UtcTime', ['DateTime']]]]
@@ -216,7 +216,7 @@ class Value(object):
             else:
                 # 1: ['Alias', [...], n]
                 # Let the next elif handle this
-                return self.__parseXMLSingleValue(xmlvalue, parentDataTypeNode, parent,
+                return self.__parseXMLSingleValue(xmlvalue, parentDataTypeNode, parent, parser,
                                                   alias=alias, encodingPart=enc[0], valueRank=enc[2] if len(enc)>2 else None)
         elif len(enc) == 4 and isinstance(enc[0], string_types) and (xmlvalue is None or (xmlvalue is not None and not xmlvalue.localName == "ExtensionObject")):
             # [ 'Alias', [...], 0 ]          aliased multipart
@@ -226,7 +226,7 @@ class Value(object):
             elif alias is not None and len(enc[1]) > 1:
                 alias = enc[0]
             # otherwise drop the alias
-            return self.__parseXMLSingleValue(xmlvalue, parentDataTypeNode, parent,
+            return self.__parseXMLSingleValue(xmlvalue, parentDataTypeNode, parent, parser,
                                               alias=alias, encodingPart=enc[1], valueRank=enc[2] if len(enc)>2 else None)
         elif not xmlvalue.localName == "ExtensionObject":
             structure = Structure()
@@ -238,7 +238,7 @@ class Value(object):
                     field = e[0]
                     childValue = xmlvalue.getElementsByTagName(field)
                     if childValue is not None and len(childValue) >= 1:
-                        structure.value.append(structure.__parseXMLSingleValue(childValue[0], parentDataTypeNode, parent,
+                        structure.value.append(structure.__parseXMLSingleValue(childValue[0], parentDataTypeNode, parent, parser,
                                                                                alias=None, encodingPart=e))
                     else:
                         prefix = alias + "." if alias is not None else ""
@@ -318,11 +318,11 @@ class Value(object):
 
                 #handling for extension objects which contain only one field
                 if len(enc) == 4 and isinstance(enc[0], string_types):
-                    extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent,
+                    extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser
                                                                      alias=None))
                 else:
                     for e in enc:
-                        extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent,
+                        extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser
                                                                         alias=None, encodingPart=e))
                         ebodypart = getNextElementNode(ebodypart)
             except Exception as ex:

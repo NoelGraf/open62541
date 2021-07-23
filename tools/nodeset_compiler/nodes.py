@@ -284,13 +284,12 @@ class VariableNode(Node):
         if dataTypeNode is None:
             return False
 
-        # FIXME: Don't build at all or allocate "defaults"? I'm for not building at all.
         if self.xmlValueDef is None:
             #logger.warn("Variable " + self.browseName() + "/" + str(self.id()) + " is not initialized. No memory will be allocated.")
             return False
 
         self.value = Value()
-        self.value.parseXMLEncoding(self.xmlValueDef, dataTypeNode, self)
+        self.value.parseXMLEncoding(self.xmlValueDef, dataTypeNode, self, nodeset.parser)
         return True
 
 

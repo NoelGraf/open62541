@@ -151,6 +151,10 @@ for ignoreFile in args.ignoreFiles:
 # unresolvable or no references or invalid NodeIDs
 ns.sanitize()
 
+# Generate the BSD file from the XML and pass the generated parser to the allocateVariable() method.
+# Extract the base64 code out of the ns file
+ns.generateParser(args.existing, args.infiles)
+
 # Allocate/Parse the data values. In order to do this, we must have run
 # buidEncodingRules.
 ns.allocateVariables()
