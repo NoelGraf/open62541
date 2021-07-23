@@ -1,0 +1,441 @@
+<?xml version="1.0" encoding="utf-8"?>
+<UANodeSet LastModified="2021-07-16T11:15:47.226Z" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://opcfoundation.org/UA/2011/03/UANodeSet.xsd" xmlns:uax="http://opcfoundation.org/UA/2008/02/Types.xsd" xmlns:si="http://www.siemens.com/OPCUA/2017/SimaticNodeSetExtensions" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+    <NamespaceUris>
+        <Uri>http://testing.open62541.org</Uri>
+        <Uri>http://testing_2.open62541.org</Uri>
+    </NamespaceUris>
+    <Models>
+        <Model ModelUri="http://testing.open62541.org" PublicationDate="2021-07-16T00:00:00Z" Version="1.00">
+            <RequiredModel ModelUri="http://opcfoundation.org/UA/" PublicationDate="2020-07-15T00:00:00Z" Version="1.04.7"/>
+            <RequiredModel ModelUri="http://testing_2.open62541.org" PublicationDate="2021-07-16T00:00:00Z" Version="1.00"/>
+        </Model>
+        <Model ModelUri="http://testing_2.open62541.org" PublicationDate="2021-07-16T00:00:00Z" Version="1.00">
+            <RequiredModel ModelUri="http://opcfoundation.org/UA/" PublicationDate="2020-07-15T00:00:00Z" Version="1.04.7"/>
+        </Model>
+    </Models>
+    <Aliases>
+        <Alias Alias="Boolean">i=1</Alias>
+        <Alias Alias="UInt32">i=7</Alias>
+        <Alias Alias="DateTime">i=13</Alias>
+        <Alias Alias="String">i=12</Alias>
+        <Alias Alias="HasComponent">i=47</Alias>
+        <Alias Alias="HasProperty">i=46</Alias>
+        <Alias Alias="Organizes">i=35</Alias>
+        <Alias Alias="HasSubtype">i=45</Alias>
+        <Alias Alias="HasTypeDefinition">i=40</Alias>
+        <Alias Alias="HasEncoding">i=38</Alias>
+    </Aliases>
+    <Extensions>
+        <Extension>
+            <si:Generator Product="SiOME" Edition="Standard" Version="2.2.0"/>
+        </Extension>
+        <Extension>
+            <si:GeneratorExtension Hash="0e8fb6eeef07e45e71c039695c998964"/>
+        </Extension>
+    </Extensions>
+    <UAObject SymbolicName="http___testing_open62541_org" NodeId="ns=1;i=5000" BrowseName="1:http://testing.open62541.org" ParentNodeId="i=11715">
+        <DisplayName>http://testing.open62541.org</DisplayName>
+        <References>
+            <Reference ReferenceType="HasComponent" IsForward="false">i=11715</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=11616</Reference>
+        </References>
+    </UAObject>
+    <UAVariable DataType="Boolean" NodeId="ns=1;i=6000" BrowseName="IsNamespaceSubset" ParentNodeId="ns=1;i=5000">
+        <DisplayName>IsNamespaceSubset</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UAVariable DataType="DateTime" NodeId="ns=1;i=6001" BrowseName="NamespacePublicationDate" ParentNodeId="ns=1;i=5000">
+        <DisplayName>NamespacePublicationDate</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+        <Value>
+            <uax:DateTime>2021-07-16T00:00:00Z</uax:DateTime>
+        </Value>
+    </UAVariable>
+    <UAVariable DataType="String" NodeId="ns=1;i=6002" BrowseName="NamespaceUri" ParentNodeId="ns=1;i=5000">
+        <DisplayName>NamespaceUri</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+        <Value>
+            <uax:String>http://testing.open62541.org</uax:String>
+        </Value>
+    </UAVariable>
+    <UAVariable DataType="String" NodeId="ns=1;i=6003" BrowseName="NamespaceVersion" ParentNodeId="ns=1;i=5000">
+        <DisplayName>NamespaceVersion</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+        <Value>
+            <uax:String>1.00</uax:String>
+        </Value>
+    </UAVariable>
+    <UAVariable DataType="i=256" ValueRank="1" NodeId="ns=1;i=6004" ArrayDimensions="0" BrowseName="StaticNodeIdTypes" ParentNodeId="ns=1;i=5000">
+        <DisplayName>StaticNodeIdTypes</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UAVariable DataType="i=291" ValueRank="1" NodeId="ns=1;i=6005" ArrayDimensions="0" BrowseName="StaticNumericNodeIdRange" ParentNodeId="ns=1;i=5000">
+        <DisplayName>StaticNumericNodeIdRange</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UAVariable DataType="String" NodeId="ns=1;i=6006" BrowseName="StaticStringNodeIdPattern" ParentNodeId="ns=1;i=5000">
+        <DisplayName>StaticStringNodeIdPattern</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UAVariable DataType="i=96" ValueRank="1" NodeId="ns=1;i=6007" ArrayDimensions="0" BrowseName="DefaultRolePermissions" ParentNodeId="ns=1;i=5000">
+        <DisplayName>DefaultRolePermissions</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UADataType NodeId="ns=1;i=3002" BrowseName="1:ConfigurationIdDataType">
+        <DisplayName>ConfigurationIdDataType</DisplayName>
+        <References>
+            <Reference ReferenceType="HasSubtype" IsForward="false">i=22</Reference>
+            <Reference ReferenceType="HasEncoding">ns=1;i=5001</Reference>
+            <Reference ReferenceType="HasEncoding">ns=1;i=5002</Reference>
+        </References>
+        <Definition Name="1:ConfigurationIdDataType">
+            <Field DataType="i=8" Name="Id"/>
+            <Field IsOptional="true" DataType="i=10" Name="Version"/>
+        </Definition>
+    </UADataType>
+    <UAObject SymbolicName="DefaultBinary" NodeId="ns=1;i=5001" BrowseName="Default Binary">
+        <DisplayName>Default Binary</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UAObject SymbolicName="DefaultXML" NodeId="ns=1;i=5002" BrowseName="Default XML">
+        <DisplayName>Default XML</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UADataType NodeId="ns=1;i=3003" BrowseName="1:ConfigurationDataType">
+        <DisplayName>ConfigurationDataType</DisplayName>
+        <References>
+            <Reference ReferenceType="HasSubtype" IsForward="false">i=22</Reference>
+            <Reference ReferenceType="HasEncoding">ns=1;i=5003</Reference>
+            <Reference ReferenceType="HasEncoding">ns=1;i=5004</Reference>
+        </References>
+        <Definition Name="1:ConfigurationDataType">
+            <Field IsOptional="true" DataType="i=1" Name="HasTransferableDataOnFile"/>
+            <Field IsOptional="true" DataType="ns=1;i=3002" Name="ExternalId"/>
+            <Field DataType="ns=1;i=3002" Name="InternalId"/>
+            <Field DataType="i=294" Name="LastModified"/>
+        </Definition>
+    </UADataType>
+    <UAObject SymbolicName="DefaultBinary" NodeId="ns=1;i=5003" BrowseName="Default Binary">
+        <DisplayName>Default Binary</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UAObject SymbolicName="DefaultXML" NodeId="ns=1;i=5004" BrowseName="Default XML">
+        <DisplayName>Default XML</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UADataType NodeId="ns=1;i=3004" BrowseName="1:CompositionDataType">
+        <DisplayName>CompositionDataType</DisplayName>
+        <References>
+            <Reference ReferenceType="HasSubtype" IsForward="false">i=22</Reference>
+            <Reference ReferenceType="HasEncoding">ns=1;i=5005</Reference>
+            <Reference ReferenceType="HasEncoding">ns=1;i=5006</Reference>
+        </References>
+        <Definition Name="1:CompositionDataType">
+            <Field DataType="ns=1;i=3002" Name="InternalId"/>
+            <Field DataType="i=294" Name="LastModified"/>
+        </Definition>
+    </UADataType>
+    <UAObject SymbolicName="DefaultBinary" NodeId="ns=1;i=5005" BrowseName="Default Binary">
+        <DisplayName>Default Binary</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UAObject SymbolicName="DefaultXML" NodeId="ns=1;i=5006" BrowseName="Default XML">
+        <DisplayName>Default XML</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UADataType NodeId="ns=1;i=3005" BrowseName="1:ResultDataType">
+        <DisplayName>ResultDataType</DisplayName>
+        <References>
+            <Reference ReferenceType="HasSubtype" IsForward="false">i=22</Reference>
+            <Reference ReferenceType="HasEncoding">ns=1;i=5007</Reference>
+            <Reference ReferenceType="HasEncoding">ns=1;i=5008</Reference>
+        </References>
+        <Definition Name="1:ResultDataType">
+            <Field DataType="i=8" Name="ResultId"/>
+            <Field DataType="i=294" Name="CreationTime"/>
+            <Field IsOptional="true" DataType="i=24" Name="ResultContent"/>
+        </Definition>
+    </UADataType>
+    <UAObject SymbolicName="DefaultBinary" NodeId="ns=1;i=5007" BrowseName="Default Binary">
+        <DisplayName>Default Binary</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UAObject SymbolicName="DefaultXML" NodeId="ns=1;i=5008" BrowseName="Default XML">
+        <DisplayName>Default XML</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UAVariable DataType="ns=1;i=3003" NodeId="ns=1;i=6008" BrowseName="1:ActiveConfiguration" ParentNodeId="i=85" UserAccessLevel="3" AccessLevel="3">
+        <DisplayName>ActiveConfiguration</DisplayName>
+        <References>
+            <Reference ReferenceType="Organizes" IsForward="false">i=85</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+        </References>
+        <Value>
+            <uax:ExtensionObject>
+                <uax:TypeId>
+                    <uax:Identifier>ns=1;i=5004</uax:Identifier>
+                </uax:TypeId>
+                <uax:Body>
+                    <ConfigurationDataType xmlns="http://testing.open62541.org/Types.xsd">
+                        <HasTransferableDataOnFile>false</HasTransferableDataOnFile>
+                        <ExternalId>
+                            <Id>3</Id>
+                            <Version>0</Version>
+                        </ExternalId>
+                        <InternalId>
+                            <Id>4</Id>
+                            <Version>0</Version>
+                        </InternalId>
+                        <LastModified>1900-01-01T00:00:00Z</LastModified>
+                    </ConfigurationDataType>
+                </uax:Body>
+            </uax:ExtensionObject>
+        </Value>
+    </UAVariable>
+    <UAVariable DataType="ns=1;i=3004" NodeId="ns=1;i=6009" BrowseName="1:PassiveConfiguration" ParentNodeId="i=85" UserAccessLevel="3" AccessLevel="3">
+        <DisplayName>PassiveConfiguration</DisplayName>
+        <References>
+            <Reference ReferenceType="Organizes" IsForward="false">i=85</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+        </References>
+        <Value>
+            <uax:ExtensionObject>
+                <uax:TypeId>
+                    <uax:Identifier>ns=1;i=5006</uax:Identifier>
+                </uax:TypeId>
+                <uax:Body>
+                    <CompositionDataType xmlns="http://testing.open62541.org/Types.xsd">
+                        <InternalId>
+                            <Id>2</Id>
+                            <Version>0</Version>
+                        </InternalId>
+                        <LastModified>1900-01-01T00:00:00Z</LastModified>
+                    </CompositionDataType>
+                </uax:Body>
+            </uax:ExtensionObject>
+        </Value>
+    </UAVariable>
+    <UAVariable DataType="ns=1;i=3005" NodeId="ns=1;i=6010" BrowseName="1:Result" ParentNodeId="i=85" UserAccessLevel="3" AccessLevel="3">
+        <DisplayName>Result</DisplayName>
+        <References>
+            <Reference ReferenceType="Organizes" IsForward="false">i=85</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+        </References>
+        <Value>
+            <uax:ExtensionObject>
+                <uax:TypeId>
+                    <uax:Identifier>ns=1;i=5008</uax:Identifier>
+                </uax:TypeId>
+                <uax:Body>
+                    <ResultDataType xmlns="http://testing.open62541.org/Types.xsd">
+                        <ResultId>25</ResultId>
+                        <CreationTime>1900-01-01T00:00:00Z</CreationTime>
+                    </ResultDataType>
+                </uax:Body>
+            </uax:ExtensionObject>
+        </Value>
+    </UAVariable>
+    <UADataType NodeId="ns=1;i=3000" BrowseName="1:ProductionDataType">
+        <DisplayName>ProductionDataType</DisplayName>
+        <References>
+            <Reference ReferenceType="HasSubtype" IsForward="false">i=22</Reference>
+            <Reference ReferenceType="HasEncoding">ns=1;i=5009</Reference>
+            <Reference ReferenceType="HasEncoding">ns=1;i=5010</Reference>
+        </References>
+        <Definition Name="1:ProductionDataType">
+            <Field DataType="ns=2;i=3001" Name="ProductId"/>
+            <Field DataType="i=294" Name="CreationDate"/>
+        </Definition>
+    </UADataType>
+    <UAObject SymbolicName="DefaultBinary" NodeId="ns=1;i=5009" BrowseName="Default Binary">
+        <DisplayName>Default Binary</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UAObject SymbolicName="DefaultXML" NodeId="ns=1;i=5010" BrowseName="Default XML">
+        <DisplayName>Default XML</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UAVariable DataType="ns=1;i=3000" NodeId="ns=1;i=6017" BrowseName="1:Product" ParentNodeId="i=85" UserAccessLevel="3" AccessLevel="3">
+        <DisplayName>Product</DisplayName>
+        <References>
+            <Reference ReferenceType="Organizes" IsForward="false">i=85</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=63</Reference>
+        </References>
+    </UAVariable>
+    <UAObject EventNotifier="13" NodeId="ns=1;i=5011" BrowseName="1:ProductState" ParentNodeId="i=85">
+        <DisplayName>ProductState</DisplayName>
+        <References>
+            <Reference ReferenceType="Organizes" IsForward="false">i=85</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=2307</Reference>
+        </References>
+    </UAObject>
+    <UAVariable DataType="UInt32" NodeId="ns=1;i=6011" BrowseName="StateNumber" ParentNodeId="ns=1;i=5011">
+        <DisplayName>StateNumber</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=1;i=5011</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UAObject SymbolicName="http___testing_2_open62541_org" NodeId="ns=2;i=5000" BrowseName="2:http://testing_2.open62541.org" ParentNodeId="i=11715">
+        <DisplayName>http://testing_2.open62541.org</DisplayName>
+        <References>
+            <Reference ReferenceType="HasComponent" IsForward="false">i=11715</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=11616</Reference>
+        </References>
+    </UAObject>
+    <UAVariable DataType="Boolean" NodeId="ns=2;i=6000" BrowseName="IsNamespaceSubset" ParentNodeId="ns=2;i=5000">
+        <DisplayName>IsNamespaceSubset</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=2;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UAVariable DataType="DateTime" NodeId="ns=2;i=6001" BrowseName="NamespacePublicationDate" ParentNodeId="ns=2;i=5000">
+        <DisplayName>NamespacePublicationDate</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=2;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+        <Value>
+            <uax:DateTime>2021-07-16T00:00:00Z</uax:DateTime>
+        </Value>
+    </UAVariable>
+    <UAVariable DataType="String" NodeId="ns=2;i=6002" BrowseName="NamespaceUri" ParentNodeId="ns=2;i=5000">
+        <DisplayName>NamespaceUri</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=2;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+        <Value>
+            <uax:String>http://testing_2.open62541.org</uax:String>
+        </Value>
+    </UAVariable>
+    <UAVariable DataType="String" NodeId="ns=2;i=6003" BrowseName="NamespaceVersion" ParentNodeId="ns=2;i=5000">
+        <DisplayName>NamespaceVersion</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=2;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+        <Value>
+            <uax:String>1.00</uax:String>
+        </Value>
+    </UAVariable>
+    <UAVariable DataType="i=256" ValueRank="1" NodeId="ns=2;i=6004" ArrayDimensions="0" BrowseName="StaticNodeIdTypes" ParentNodeId="ns=2;i=5000">
+        <DisplayName>StaticNodeIdTypes</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=2;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UAVariable DataType="i=291" ValueRank="1" NodeId="ns=2;i=6005" ArrayDimensions="0" BrowseName="StaticNumericNodeIdRange" ParentNodeId="ns=2;i=5000">
+        <DisplayName>StaticNumericNodeIdRange</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=2;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UAVariable DataType="String" NodeId="ns=2;i=6006" BrowseName="StaticStringNodeIdPattern" ParentNodeId="ns=2;i=5000">
+        <DisplayName>StaticStringNodeIdPattern</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=2;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UAVariable DataType="i=96" ValueRank="1" NodeId="ns=2;i=6007" ArrayDimensions="0" BrowseName="DefaultRolePermissions" ParentNodeId="ns=2;i=5000">
+        <DisplayName>DefaultRolePermissions</DisplayName>
+        <References>
+            <Reference ReferenceType="HasProperty" IsForward="false">ns=2;i=5000</Reference>
+            <Reference ReferenceType="HasTypeDefinition">i=68</Reference>
+        </References>
+    </UAVariable>
+    <UADataType NodeId="ns=2;i=3000" BrowseName="2:ProductIdDataType">
+        <DisplayName>ProductIdDataType</DisplayName>
+        <References>
+            <Reference ReferenceType="HasSubtype" IsForward="false">i=22</Reference>
+            <Reference ReferenceType="HasEncoding">ns=2;i=5001</Reference>
+            <Reference ReferenceType="HasEncoding">ns=2;i=5002</Reference>
+        </References>
+        <Definition Name="2:ProductIdDataType">
+            <Field DataType="i=12" Name="Id"/>
+        </Definition>
+    </UADataType>
+    <UAObject SymbolicName="DefaultBinary" NodeId="ns=2;i=5001" BrowseName="Default Binary">
+        <DisplayName>Default Binary</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UAObject SymbolicName="DefaultXML" NodeId="ns=2;i=5002" BrowseName="Default XML">
+        <DisplayName>Default XML</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UADataType NodeId="ns=2;i=3001" BrowseName="2:ProductDataType">
+        <DisplayName>ProductDataType</DisplayName>
+        <References>
+            <Reference ReferenceType="HasSubtype" IsForward="false">i=22</Reference>
+            <Reference ReferenceType="HasEncoding">ns=2;i=5003</Reference>
+            <Reference ReferenceType="HasEncoding">ns=2;i=5004</Reference>
+        </References>
+        <Definition Name="2:ProductDataType">
+            <Field DataType="ns=2;i=3000" Name="ExternalId"/>
+        </Definition>
+    </UADataType>
+    <UAObject SymbolicName="DefaultBinary" NodeId="ns=2;i=5003" BrowseName="Default Binary">
+        <DisplayName>Default Binary</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+    <UAObject SymbolicName="DefaultXML" NodeId="ns=2;i=5004" BrowseName="Default XML">
+        <DisplayName>Default XML</DisplayName>
+        <References>
+            <Reference ReferenceType="HasTypeDefinition">i=76</Reference>
+        </References>
+    </UAObject>
+</UANodeSet>
