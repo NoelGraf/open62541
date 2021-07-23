@@ -318,11 +318,11 @@ class Value(object):
 
                 #handling for extension objects which contain only one field
                 if len(enc) == 4 and isinstance(enc[0], string_types):
-                    extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser
-                                                                     alias=None))
+                    extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser,
+                                                                        alias=None))
                 else:
                     for e in enc:
-                        extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser
+                        extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser,
                                                                         alias=None, encodingPart=e))
                         ebodypart = getNextElementNode(ebodypart)
             except Exception as ex:
