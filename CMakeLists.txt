@@ -12,7 +12,8 @@ endif()
 string(TOLOWER "${CMAKE_BUILD_TYPE}" BUILD_TYPE_LOWER_CASE)
 
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/tools/cmake")
-find_package(PythonInterp REQUIRED)
+find_package(Python3 REQUIRED)
+set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 find_package(Git)
 include(AssignSourceGroup)
 include(GNUInstallDirs)
@@ -622,15 +623,12 @@ if(NOT UA_FORCE_CPP AND (CMAKE_COMPILER_IS_GNUCC OR "x${CMAKE_C_COMPILER_ID}" ST
         check_add_cc_flag("-fPIC")
     endif()
 
+    # Force 32bit build
     if(UA_FORCE_32BIT)
-      string(FIND "${CMAKE_C_FLAGS}" "-m32" m32_already_set)
-      if(m32_already_set EQUAL -1)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
-      endif()
-      unset(flag_supported CACHE)
+	check_add_cc_flag("-m32")
     endif()
 
-    if(NOT MINGW)
+    if(NOT MINGW AND NOT UA_BUILD_OSS_FUZZ)
         if(UA_ENABLE_HARDENING)
             check_add_cc_flag("-fstack-protector-strong") # more performant stack protector, available since gcc 4.9
             check_add_cc_flag("-fstack-clash-protection") # increased reliability of stack overflow detection, available since gcc 8
@@ -668,26 +666,22 @@ if(NOT UA_FORCE_CPP AND (CMAKE_COMPILER_IS_GNUCC OR "x${CMAKE_C_COMPILER_ID}" ST
     set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "") # cmake sets -rdynamic by default
 
     # Debug
-    if(BUILD_TYPE_LOWER_CASE STREQUAL "debug" AND UNIX)
-        if("x${CMAKE_C_COMPILER_ID}" STREQUAL "xClang" AND NOT UA_ENABLE_UNIT_TESTS_MEMCHECK)
-            # Add default sanitizer settings when using clang and Debug build.
-            # This allows e.g. CLion to find memory locations for SegFaults
-            message(STATUS "Sanitizer enabled")
-            set(SANITIZER_FLAGS "-g -fno-omit-frame-pointer -gline-tables-only -fsanitize=address -fsanitize-address-use-after-scope -fsanitize=leak -fsanitize=undefined")
-            if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
-                set(SANITIZER_FLAGS "${SANITIZER_FLAGS} -fsanitize-coverage=trace-pc-guard")
-            endif()
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZER_FLAGS}")
-            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SANITIZER_FLAGS}")
+    if(BUILD_TYPE_LOWER_CASE STREQUAL "debug" AND UNIX AND NOT UA_BUILD_OSS_FUZZ AND
+       "x${CMAKE_C_COMPILER_ID}" STREQUAL "xClang" AND NOT UA_ENABLE_UNIT_TESTS_MEMCHECK)
+        # Add default sanitizer settings when using clang and Debug build.
+        # This allows e.g. CLion to find memory locations for SegFaults
+        message(STATUS "Sanitizer enabled")
+        set(SANITIZER_FLAGS "-g -fno-omit-frame-pointer -gline-tables-only -fsanitize=address -fsanitize-address-use-after-scope -fsanitize=leak -fsanitize=undefined")
+        if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.0)
+            set(SANITIZER_FLAGS "${SANITIZER_FLAGS} -fsanitize-coverage=trace-pc-guard")
         endif()
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${SANITIZER_FLAGS}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SANITIZER_FLAGS}")
     endif()
 
-    if (NOT MINGW)
-        if(UA_ENABLE_HARDENING AND ((CMAKE_BUILD_TYPE STREQUAL "Release") OR (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")))
-            check_add_cc_flag("-D_FORTIFY_SOURCE=2") # run-time buffer overflow detection (needs at least -O1)
-        endif()
+    if(NOT MINGW AND UA_ENABLE_HARDENING AND ((CMAKE_BUILD_TYPE STREQUAL "Release") OR (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")))
+        check_add_cc_flag("-D_FORTIFY_SOURCE=2") # run-time buffer overflow detection (needs at least -O1)
     endif()
-
 
     # Strip release builds
     if(CMAKE_BUILD_TYPE STREQUAL "MinSizeRel" OR CMAKE_BUILD_TYPE STREQUAL "Release")
