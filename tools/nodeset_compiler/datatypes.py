@@ -17,6 +17,8 @@ from datetime import datetime
 import xml.dom.minidom as dom
 from base64 import *
 
+from type_parser import *
+
 __all__ = ['valueIsInternalType', 'Value', 'Boolean', 'Number', 'Integer',
            'UInteger', 'Byte', 'SByte',
            'Int16', 'UInt16', 'Int32', 'UInt32', 'Int64', 'UInt64', 'Float', 'Double',
@@ -162,99 +164,22 @@ class Value(object):
             self.value = [self.__parseXMLSingleValue(xmlvalue, parentDataTypeNode, parent, parser)]
 
     def __parseXMLSingleValue(self, xmlvalue, parentDataTypeNode, parent, parser, alias=None, encodingPart=None, valueRank=None):
-        # Parse an encoding list such as enc = [[Int32], ['Duration', ['DateTime']]],
-        # returning a possibly aliased variable or list of variables.
-        # Keep track of aliases, as ['Duration', ['Hawaii', ['UtcTime', ['DateTime']]]]
-        # will be of type DateTime, but tagged as <Duration>2013-04-10 12:00 UTC</Duration>,
-        # and not as <Duration><Hawaii><UtcTime><String>2013-04-10 12:00 UTC</String>...
-
-        # Encoding may be partially handed down (iterative call). Only resort to
-        # type definition if we are not given a specific encoding to match
-        if encodingPart is None:
-            enc = parentDataTypeNode.getEncoding()
-        else:
-            enc = encodingPart
-
-        # Check the structure of the encoding list to determine if a type is to be
-        # returned or we need to descend further checking aliases or multipart types
-        # such as extension Objects.
-        if len(enc) == 1:
-            # 0: ['BuiltinType']          either builtin type
-            # 1: [ [ 'Alias', [...], n] ] or single alias for possible multipart
-            if isinstance(enc[0], string_types):
-                # 0: 'BuiltinType'
-                if alias is not None:
-                    if xmlvalue is not None and not xmlvalue.localName == alias and not xmlvalue.localName == enc[0]:
-                        logger.error(str(parent.id) + ": Expected XML element with tag " + alias + " but found " + xmlvalue.localName + " instead")
-                        return ExtensionObject()
-                    else:
-                        t = self.getTypeByString(enc[0], enc)
-                        t.alias = alias
-                        t.valueRank = valueRank
-
-                        if valueRank == 1:
-                            values = []
-                            for el in xmlvalue.childNodes:
-                                if not el.nodeType == el.ELEMENT_NODE:
-                                    continue
-                                val = self.getTypeByString(enc[0], enc)
-                                val.parseXML(el)
-                                values.append(val)
-                            return values
-                        else:
-                            if xmlvalue is not None:
-                                t.parseXML(xmlvalue)
-                            return t
-                else:
-                    if not valueIsInternalType(xmlvalue.localName):
-                        logger.error(str(parent.id) + ": Expected XML describing builtin type " + enc[0] + " but found " + xmlvalue.localName + " instead")
-                    else:
-                        t = self.getTypeByString(enc[0], enc)
-                        t.parseXML(xmlvalue)
-                        t.isInternal = True
-                        return t
-            else:
-                # 1: ['Alias', [...], n]
-                # Let the next elif handle this
-                return self.__parseXMLSingleValue(xmlvalue, parentDataTypeNode, parent, parser,
-                                                  alias=alias, encodingPart=enc[0], valueRank=enc[2] if len(enc)>2 else None)
-        elif len(enc) == 4 and isinstance(enc[0], string_types) and (xmlvalue is None or (xmlvalue is not None and not xmlvalue.localName == "ExtensionObject")):
-            # [ 'Alias', [...], 0 ]          aliased multipart
-            if alias is None:
-                alias = enc[0]
-            # if we have an alias and the next field is multipart, keep the alias
-            elif alias is not None and len(enc[1]) > 1:
-                alias = enc[0]
-            # otherwise drop the alias
-            return self.__parseXMLSingleValue(xmlvalue, parentDataTypeNode, parent, parser,
-                                              alias=alias, encodingPart=enc[1], valueRank=enc[2] if len(enc)>2 else None)
-        elif not xmlvalue.localName == "ExtensionObject":
-            structure = Structure()
-            structure.alias = alias
-            structure.value = []
-            for e in enc:
-                # get field name
-                if len(e) == 3 and isinstance(e[0], string_types):
-                    field = e[0]
-                    childValue = xmlvalue.getElementsByTagName(field)
-                    if childValue is not None and len(childValue) >= 1:
-                        structure.value.append(structure.__parseXMLSingleValue(childValue[0], parentDataTypeNode, parent, parser,
-                                                                               alias=None, encodingPart=e))
-                    else:
-                        prefix = alias + "." if alias is not None else ""
-                        logger.error(str(parent.id) + ": Expected Field '" + prefix + field + "' not found in ExtensionObject value")
-                else:
-                    logger.error(str(parent.id) + ": Expected Encoding to contain field name. Cannot construct struct")
-
-            return structure
-        else:
-            # [ [...], [...], [...]] multifield of unknowns (analyse separately)
-            # create an extension object to hold multipart type
-
+        
+        enc = None
+        for _, e in parser.types.items():
+            if not enc == None:
+                break
+            for key, value in e.items():
+                if key == parentDataTypeNode.displayName.text:
+                    enc = value
+                    break
+        if valueIsInternalType(xmlvalue.localName):
+            t = self.getTypeByString(xmlvalue.localName, None)
+            t.parseXML(xmlvalue)
+            t.isInternal = True
+            return t
+        elif xmlvalue.localName == "ExtensionObject":
             extobj = ExtensionObject()
-            if not xmlvalue.localName == "ExtensionObject":
-                logger.error(str(parent.id) + ": Expected XML tag <ExtensionObject> for multipart type, but found " + xmlvalue.localName + " instead.")
-                return extobj
 
             extobj.encodingRule = enc
             etype = xmlvalue.getElementsByTagName("TypeId")
@@ -288,8 +213,8 @@ class Value(object):
                 if parentDataTypeNode.symbolicName is not None and parentDataTypeNode.symbolicName.value is not None:
                     parentName = parentDataTypeNode.symbolicName.value
                 if not ebodypart.localName == "OptionSet" and not ebodypart.localName == parentName:
-                    logger.error(str(parent.id) + ": Expected ExtensionObject to hold a variable of type " + str(parentDataTypeNode.browseName) + " but found " +
-                                 str(ebodypart.localName) + " instead.")
+                    logger.error(   str(parent.id) + ": Expected ExtensionObject to hold a variable of type " + str(parentDataTypeNode.browseName) + " but found " +
+                                    str(ebodypart.localName) + " instead.")
                     return extobj
                 extobj.alias = ebodypart.localName
 
@@ -301,30 +226,22 @@ class Value(object):
                     return extobj
 
                 extobj.value = []
-                if ebodypart.localName == "EncodingMask":
-                    remove_list = []
-                    index = 0
-                    if len(enc) == 4 and isinstance(enc[0], string_types):
-                        enc = [enc]
-                    if ebodypart.firstChild.data == '0':
-                        for i in range(0,len(enc)):
-                            if enc[i][len(enc[i])-1] == 'true':
-                                remove_list.append(i)
-                        for i in remove_list:
-                            # Adjust the indicies in the remove list after each deletion!
-                            del enc[i-index]
-                            index += 1
-                    ebodypart = getNextElementNode(ebodypart)
 
-                #handling for extension objects which contain only one field
-                if len(enc) == 4 and isinstance(enc[0], string_types):
-                    extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser,
-                                                                        alias=None))
-                else:
-                    for e in enc:
-                        extobj.value.append(extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser,
-                                                                        alias=None, encodingPart=e))
+                for e in enc.members:
+
+                    if isinstance(e, StructMember):
+                        if isinstance(e.member_type, BuiltinType):
+                            t = self.getTypeByString(e.member_type.name, None)
+                            t.parseXML(ebodypart)
+                            t.isInternal = True
+                            extobj.value.append(t)
+                        else:
+                            logger.error(str(parent.id) + ": Description of dataType " + str(parentDataTypeNode.browseName) + " in ExtensionObject is not a BuildinType.")
+                            return extobj
+
                         ebodypart = getNextElementNode(ebodypart)
+
+
             except Exception as ex:
                 logger.error(str(parent.id) + ": Could not parse <Body> for ExtensionObject. {}".format(ex))
 
