@@ -166,19 +166,19 @@ class Value(object):
     def __parseXMLSingleValue(self, xmlvalue, parentDataTypeNode, parent, parser, alias=None, encodingPart=None, valueRank=None):
         
         enc = None
-        for _, e in parser.types.items():
-            if not enc == None:
-                break
-            for key, value in e.items():
-                if key == parentDataTypeNode.displayName.text:
-                    enc = value
+        if encodingPart is None:
+            for _, e in parser.types.items():
+                if not enc == None:
                     break
-        if valueIsInternalType(xmlvalue.localName):
-            t = self.getTypeByString(xmlvalue.localName, None)
-            t.parseXML(xmlvalue)
-            t.isInternal = True
-            return t
-        elif xmlvalue.localName == "ExtensionObject":
+                for key, value in e.items():
+                    if key == parentDataTypeNode.displayName.text:
+                        enc = value
+                        break
+        else:
+            enc = encodingPart
+            ebodypart = xmlvalue
+
+        if xmlvalue.localName == "ExtensionObject":
             extobj = ExtensionObject()
 
             extobj.encodingRule = enc
@@ -227,25 +227,73 @@ class Value(object):
 
                 extobj.value = []
 
-                for e in enc.members:
+                if ebodypart.localName == "EncodingMask":
+                    ebodypart = getNextElementNode(ebodypart)
 
-                    if isinstance(e, StructMember):
-                        if isinstance(e.member_type, BuiltinType):
+                for e in enc.members:
+                    if ebodypart is None:
+                        if not e.is_optional:
                             t = self.getTypeByString(e.member_type.name, None)
+                            extobj.value.append(t)
+                        continue
+                    if isinstance(e, StructMember):
+                        if not e.name.lower() == ebodypart.localName.lower():
+                            continue
+                        if isinstance(e.member_type, BuiltinType):
+                            if e.is_array:
+                                extobj.value.append([])
+                            else:
+                                t = self.getTypeByString(e.member_type.name, None)
+                                t.parseXML(ebodypart)
+                                extobj.value.append(t)
+                        elif isinstance(e.member_type, StructType):
+                            val, ebodypart = extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser, alias=None, encodingPart=e.member_type)
+                            extobj.value.append(val)
+                        elif isinstance(e.member_type, EnumerationType):
+                            t = self.getTypeByString("Int32", None)
                             t.parseXML(ebodypart)
-                            t.isInternal = True
                             extobj.value.append(t)
                         else:
-                            logger.error(str(parent.id) + ": Description of dataType " + str(parentDataTypeNode.browseName) + " in ExtensionObject is not a BuildinType.")
+                            logger.error(str(parent.id) + ": Description of dataType " + str(parentDataTypeNode.browseName) + " in ExtensionObject is not a BuildinType, StructType or EnumerationType.")
+                            return extobj
+                    else:
+                            logger.error(str(parent.id) + ": Description of dataType " + str(parentDataTypeNode.browseName) + " in ExtensionObject is not a StructMember.")
                             return extobj
 
-                        ebodypart = getNextElementNode(ebodypart)
-
+                    ebodypart = getNextElementNode(ebodypart)
 
             except Exception as ex:
                 logger.error(str(parent.id) + ": Could not parse <Body> for ExtensionObject. {}".format(ex))
 
-            return extobj
+        elif valueIsInternalType(xmlvalue.localName):
+            t = self.getTypeByString(xmlvalue.localName, None)
+            t.parseXML(xmlvalue)
+            t.isInternal = True
+            return t
+        elif isinstance(enc, StructType):
+            for e in enc.members:
+                    if isinstance(e, StructMember):
+                        if isinstance(e.member_type, BuiltinType):
+                            if e.is_array:
+                                values = []
+                                return values
+                            else:
+                                t = self.getTypeByString(e.member_type.name, None)
+                                if ebodypart is not None:
+                                    t.parseXML(ebodypart)
+                                    return t, ebodypart
+                                else:
+                                    if not e.is_optional:
+                                        return t
+                        elif isinstance(e.member_type, StructType):
+                            self.value.append(self.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser, alias=None, encodingPart=e.member_type))
+                        else:
+                            logger.error(str(parent.id) + ": Description of dataType " + str(parentDataTypeNode.browseName) + " in ExtensionObject is not a BuildinType or StructMember.")
+                            return self
+
+                        ebodypart = getNextElementNode(ebodypart)
+
+        return extobj
 
     def __str__(self):
         return self.__class__.__name__ + "(" + str(self.value) + ")"
