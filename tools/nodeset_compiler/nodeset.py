@@ -434,6 +434,9 @@ class NodeSet(object):
                 if nd.hasAttribute("SymbolicName") and (re.match(r".*_BinarySchema", nd.attributes["SymbolicName"].nodeValue) or nd.attributes["SymbolicName"].nodeValue == "TypeDictionary_BinarySchema"):
                     type_content = nd.getElementsByTagName("Value")[0].getElementsByTagName("ByteString")[0]
                     f = tempfile.NamedTemporaryFile(suffix='.bsd')
+                    # The ByteString variable in a BinarySchema can be empty and must therefore be ignored (see NodeSet2.Reduced.xml)
+                    if type_content.firstChild is None:
+                        continue
                     f.write(base64.b64decode(type_content.firstChild.nodeValue))
                     f.flush()
                     all_files.append(f)
@@ -462,6 +465,9 @@ class NodeSet(object):
                 if nd.hasAttribute("SymbolicName") and (re.match(r".*_BinarySchema", nd.attributes["SymbolicName"].nodeValue) or nd.attributes["SymbolicName"].nodeValue == "TypeDictionary_BinarySchema"):
                     type_content = nd.getElementsByTagName("Value")[0].getElementsByTagName("ByteString")[0]
                     f = tempfile.NamedTemporaryFile(suffix='.bsd')
+                    # The ByteString variable in a BinarySchema can be empty and must therefore be ignored (see NodeSet2.Reduced.xml)
+                    if type_content.firstChild is None:
+                        continue
                     f.write(base64.b64decode(type_content.firstChild.nodeValue))
                     f.flush()
                     bf = io.BufferedReader(open(f.name, mode='rb'))
