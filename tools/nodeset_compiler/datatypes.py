@@ -164,7 +164,6 @@ class Value(object):
             self.value = [self.__parseXMLSingleValue(xmlvalue, parentDataTypeNode, parent, parser)]
 
     def __parseXMLSingleValue(self, xmlvalue, parentDataTypeNode, parent, parser, alias=None, encodingPart=None, valueRank=None):
-        
         enc = None
         if encodingPart is None:
             for _, e in parser.types.items():
@@ -227,10 +226,13 @@ class Value(object):
 
                 extobj.value = []
 
+                # Die EncodingMask kann übersprungen werden
                 if ebodypart.localName == "EncodingMask":
                     ebodypart = getNextElementNode(ebodypart)
 
                 for e in enc.members:
+                    # Verschatelte Strukturen müssen noch berücksichtig werden ggf. rekursiv
+                    # ebodypart kann None sein, wenn das Feld nicht gesetzt ist, obwohl das Feld nicht optional ist
                     if ebodypart is None:
                         if not e.is_optional:
                             t = self.getTypeByString(e.member_type.name, None)
@@ -241,13 +243,14 @@ class Value(object):
                             continue
                         if isinstance(e.member_type, BuiltinType):
                             if e.is_array:
+                                # Die Values müssen noch durchlaufen werden!
                                 extobj.value.append([])
                             else:
                                 t = self.getTypeByString(e.member_type.name, None)
                                 t.parseXML(ebodypart)
                                 extobj.value.append(t)
                         elif isinstance(e.member_type, StructType):
-                            val, ebodypart = extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser, alias=None, encodingPart=e.member_type)
+                            val = extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser, alias=None, encodingPart=e.member_type)
                             extobj.value.append(val)
                         elif isinstance(e.member_type, EnumerationType):
                             t = self.getTypeByString("Int32", None)
@@ -271,17 +274,39 @@ class Value(object):
             t.isInternal = True
             return t
         elif isinstance(enc, StructType):
-            for e in enc.members:
+            members = enc.members
+            # Der StructType kann ein Union sein und muss dementsprechend behandelt werden
+            if enc.is_union:
+                body = xmlvalue.getElementsByTagName("SwitchField")
+                body = body[0]
+                if body.localName == "SwitchField":
+                    data = int(body.firstChild.data)
+                    if data == 0:
+                        #!!
+                        return None
+                    else:
+                        members = []
+                        members.append(enc.members[data-1])
+                        ebodypart =  getNextElementNode(body)
+                else:
+                    logger.error(str(parent.id) + ": Could not parse <SwitchFiled> for Union.")
+                    return self
+                
+
+            for e in members:
                     if isinstance(e, StructMember):
                         if isinstance(e.member_type, BuiltinType):
                             if e.is_array:
                                 values = []
+                                # Die Values müssen noch durchlaufen werden!
                                 return values
                             else:
                                 t = self.getTypeByString(e.member_type.name, None)
+                                # ebodypart kann None sein, wenn das Feld nicht gesetzt ist, obwohl das Feld nicht optional ist
                                 if ebodypart is not None:
                                     t.parseXML(ebodypart)
-                                    return t, ebodypart
+                                    #!!
+                                    return t
                                 else:
                                     if not e.is_optional:
                                         return t
