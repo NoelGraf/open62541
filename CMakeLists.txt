@@ -292,6 +292,8 @@ if(UA_FORCE_CPP)
     add_definitions(-D__STDC_CONSTANT_MACROS) # We need the UINT32_C define
 endif()
 
+option(UA_FORCE_WERROR "Force compilation with -Werror" ON)
+
 #General PubSub setup
 option(UA_ENABLE_PUBSUB "Enable the PubSub protocol" OFF)
 
@@ -502,11 +504,6 @@ if(BUILD_SHARED_LIBS)
   endif()
 endif()
 
-# Warn if experimental features are enabled
-if(UA_MULTITHREADING GREATER 199)
-    MESSAGE(WARNING "UA_MULTITHREADING >= 200. Internal threads of the server are an EXPERIMENTAL feature. Expect bugs")
-endif()
-
 if(UA_ENABLE_SUBSCRIPTIONS_ALARMS_CONDITIONS)
     MESSAGE(WARNING "UA_ENABLE_SUBSCRIPTIONS_ALARMS_CONDITIONS is enabled. The feature is under development and marked as EXPERIMENTAL")
 endif()
@@ -589,7 +586,9 @@ if(NOT UA_FORCE_CPP AND (CMAKE_COMPILER_IS_GNUCC OR "x${CMAKE_C_COMPILER_ID}" ST
     check_add_cc_flag("-Wall")      # Warnings
     check_add_cc_flag("-Wextra")    # More warnings
     check_add_cc_flag("-Wpedantic") # Standard compliance
-    check_add_cc_flag("-Werror")    # All warnings are errors
+    if(UA_FORCE_WERROR)
+        check_add_cc_flag("-Werror")    # All warnings are errors
+    endif()
 
     check_add_cc_flag("-Wno-static-in-inline") # Clang doesn't like the use of static inline methods inside static inline methods
     check_add_cc_flag("-Wno-overlength-strings") # May happen in the nodeset compiler when complex values are directly encoded
@@ -820,12 +819,10 @@ set(internal_headers ${PROJECT_SOURCE_DIR}/deps/open62541_queue.h
                      ${PROJECT_SOURCE_DIR}/deps/pcg_basic.h
                      ${PROJECT_SOURCE_DIR}/deps/libc_time.h
                      ${PROJECT_SOURCE_DIR}/deps/base64.h
-                     ${PROJECT_SOURCE_DIR}/src/ua_util_internal.h
                      ${PROJECT_SOURCE_DIR}/src/ua_types_encoding_binary.h
-                     ${PROJECT_BINARY_DIR}/src_generated/open62541/types_generated_encoding_binary.h
+                     ${PROJECT_SOURCE_DIR}/src/ua_util_internal.h
                      ${PROJECT_BINARY_DIR}/src_generated/open62541/transport_generated.h
                      ${PROJECT_BINARY_DIR}/src_generated/open62541/transport_generated_handling.h
-                     ${PROJECT_BINARY_DIR}/src_generated/open62541/transport_generated_encoding_binary.h
                      ${PROJECT_SOURCE_DIR}/src/ua_connection_internal.h
                      ${PROJECT_SOURCE_DIR}/src/ua_securechannel.h
                      ${PROJECT_SOURCE_DIR}/src/ua_timer.h
@@ -864,7 +861,9 @@ set(lib_sources ${PROJECT_SOURCE_DIR}/src/ua_types.c
                 ${PROJECT_SOURCE_DIR}/src/server/ua_server_async.c
                 ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_networkmessage.c
                 ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_writer.c
+                ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_writergroup.c
                 ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_reader.c
+                ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_readergroup.c
                 ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_manager.c
                 ${PROJECT_SOURCE_DIR}/src/pubsub/ua_pubsub_ns0.c
                 # services
@@ -942,6 +941,12 @@ if(UA_ENABLE_PUBSUB_ENCRYPTION)
     ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/securitypolicy_pubsub_aes256ctr.c)
 endif()
 
+if(UA_ENABLE_ENCRYPTION_MBEDTLS OR UA_ENABLE_ENCRYPTION_OPENSSL OR UA_ENABLE_ENCRYPTION_LIBRESSL OR UA_ENABLE_AMALGAMATION)
+  list(APPEND default_plugin_headers
+      ${PROJECT_SOURCE_DIR}/plugins/include/open62541/plugin/create_certificate.h
+  )
+endif()
+
 if(UA_ENABLE_ENCRYPTION_MBEDTLS OR UA_ENABLE_AMALGAMATION)
 list(INSERT default_plugin_sources 1
      ${PROJECT_SOURCE_DIR}/plugins/crypto/mbedtls/ua_securitypolicy_basic128rsa15.c
@@ -960,6 +965,7 @@ list(INSERT default_plugin_sources 0
      ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_openssl_basic256.c
      ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_openssl_basic256sha256.c
      ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_openssl_aes128sha256rsaoaep.c
+     ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_openssl_create_certificate.c
      ${PROJECT_SOURCE_DIR}/plugins/crypto/openssl/ua_pki_openssl.c)
 endif()
 
@@ -1001,14 +1007,14 @@ if(UA_ENABLE_PUBSUB)
         if(WIN32)
             MESSAGE(WARNING "Multithreading is enabled in MQTT plugin. This feature is under development and marked as EXPERIMENTAL")
         else()
-            list(APPEND default_plugin_headers ${PROJECT_SOURCE_DIR}/deps/mqtt-c/mqtt_pal.h)
-            list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/mqtt/ua_mqtt_pal.c)
-            list(APPEND default_plugin_headers ${PROJECT_SOURCE_DIR}/deps/mqtt-c/mqtt.h)
-            list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/deps/mqtt-c/mqtt.c)
-            list(APPEND default_plugin_headers ${PROJECT_SOURCE_DIR}/plugins/ua_network_pubsub_mqtt.h)
-            list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/ua_network_pubsub_mqtt.c)
-            list(APPEND default_plugin_headers ${PROJECT_SOURCE_DIR}/plugins/mqtt/ua_mqtt_adapter.h)
-            list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/mqtt/ua_mqtt_adapter.c)
+            list(APPEND default_plugin_headers ${PROJECT_SOURCE_DIR}/deps/mqtt-c/mqtt_pal.h
+                                               ${PROJECT_SOURCE_DIR}/deps/mqtt-c/mqtt.h
+                                               ${PROJECT_SOURCE_DIR}/plugins/ua_network_pubsub_mqtt.h
+                                               ${PROJECT_SOURCE_DIR}/plugins/mqtt/ua_mqtt_adapter.h)
+            list(APPEND default_plugin_sources ${PROJECT_SOURCE_DIR}/plugins/mqtt/ua_mqtt_pal.c
+                                               ${PROJECT_SOURCE_DIR}/deps/mqtt-c/mqtt.c
+                                               ${PROJECT_SOURCE_DIR}/plugins/ua_network_pubsub_mqtt.c
+                                               ${PROJECT_SOURCE_DIR}/plugins/mqtt/ua_mqtt_adapter.c)
         endif()
     endif()
     if(UA_ENABLE_MALLOC_SINGLETON AND UA_ENABLE_PUBSUB_BUFMALLOC)
@@ -1501,7 +1507,7 @@ endif()
 if(UA_ENABLE_SUBSCRIPTIONS_EVENTS)
     list(APPEND open62541_enabled_components "Events")
 endif()
-if(UA_MULTITHREADING)
+if(UA_MULTITHREADING GREATER_EQUAL 100)
     list(APPEND open62541_enabled_components "Multithreading")
 endif()
 if(UA_ENABLE_DISCOVERY)
