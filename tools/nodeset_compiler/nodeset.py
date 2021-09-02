@@ -406,7 +406,7 @@ class NodeSet(object):
             #else:
             #    raise RuntimeError("Node {}: HierarchicalReference (or subtype of it) to parent node is missing.".format(str(node.id)))
 
-    def generateParser(self, existing, infiles):
+    def generateParser(self, existing, infiles , bsdFile):
         all_files = []
         import_bsd = []
         type_bsd = []
@@ -475,6 +475,9 @@ class NodeSet(object):
         type_csv = []
         no_builtin = True
         outname = "outname"
+
+        for bsd in bsdFile:
+            type_bsd.append(bsd)
 
         self.parser = CSVBSDTypeParser(opaque_map, selected_types, no_builtin, outname, import_bsd,
                                     type_bsd, type_csv, self.namespaces)

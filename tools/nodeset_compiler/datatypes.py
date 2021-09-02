@@ -166,13 +166,26 @@ class Value(object):
     def __parseXMLSingleValue(self, xmlvalue, parentDataTypeNode, parent, parser, alias=None, encodingPart=None, valueRank=None):
         enc = None
         if encodingPart is None:
-            for _, e in parser.types.items():
-                if not enc == None:
-                    break
-                for key, value in e.items():
-                    if key == parentDataTypeNode.displayName.text:
-                        enc = value
+            if not parentDataTypeNode.symbolicName is None:
+                for _, e in parser.types.items():
+                    if not enc == None:
                         break
+                    for key, value in e.items():
+                        # Inside the parser are the symbolic names of the data types. If the display name and symbolic name are different, both must be checked.
+                        # An example is the 3DFrame datatype where the symbolic name is ThreeDFrame.
+                        if key == parentDataTypeNode.displayName.text or key == parentDataTypeNode.symbolicName.value:
+                            enc = value
+                            break
+            else:
+                for _, e in parser.types.items():
+                    if not enc == None:
+                        break
+                    for key, value in e.items():
+                        # Inside the parser are the symbolic names of the data types. If the display name and symbolic name are different, both must be checked.
+                        # An example is the 3DFrame datatype where the symbolic name is ThreeDFrame.
+                        if key == parentDataTypeNode.displayName.text:
+                            enc = value
+                            break
         else:
             enc = encodingPart
             ebodypart = xmlvalue
@@ -250,8 +263,11 @@ class Value(object):
                                 t.parseXML(ebodypart)
                                 extobj.value.append(t)
                         elif isinstance(e.member_type, StructType):
-                            val = extobj.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser, alias=None, encodingPart=e.member_type)
-                            extobj.value.append(val)
+                            structure = Structure()
+                            structure.alias = ebodypart.localName
+                            structure.value = []
+                            structure.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser, alias=None, encodingPart=e.member_type)
+                            extobj.value.append(structure)
                         elif isinstance(e.member_type, EnumerationType):
                             t = self.getTypeByString("Int32", None)
                             t.parseXML(ebodypart)
@@ -293,30 +309,40 @@ class Value(object):
                     return self
                 
 
+            childValue = ebodypart.firstChild
+            if not childValue == ebodypart.ELEMENT_NODE:
+                childValue = getNextElementNode(childValue)
             for e in members:
                     if isinstance(e, StructMember):
                         if isinstance(e.member_type, BuiltinType):
                             if e.is_array:
                                 values = []
                                 # Die Values müssen noch durchlaufen werden!
-                                return values
+                                self.value.append(values)
                             else:
                                 t = self.getTypeByString(e.member_type.name, None)
                                 # ebodypart kann None sein, wenn das Feld nicht gesetzt ist, obwohl das Feld nicht optional ist
-                                if ebodypart is not None:
-                                    t.parseXML(ebodypart)
+                                if childValue is not None:
+                                    t.parseXML(childValue)
+                                    t.alias = childValue.localName
                                     #!!
-                                    return t
+                                    self.value.append(t)
                                 else:
                                     if not e.is_optional:
-                                        return t
+                                        self.value.append(t)
                         elif isinstance(e.member_type, StructType):
-                            self.value.append(self.__parseXMLSingleValue(ebodypart, parentDataTypeNode, parent, parser, alias=None, encodingPart=e.member_type))
+                            structure = Structure()
+                            structure.alias = ebodypart.localName
+                            structure.value = []
+                            structure.value.append(structure.__parseXMLSingleValue(childValue, parentDataTypeNode, parent, parser, alias=None, encodingPart=e.member_type))
+                            self.value.append(structure)
+                            return structure
                         else:
                             logger.error(str(parent.id) + ": Description of dataType " + str(parentDataTypeNode.browseName) + " in ExtensionObject is not a BuildinType or StructMember.")
                             return self
 
-                        ebodypart = getNextElementNode(ebodypart)
+                        childValue = getNextElementNode(childValue)
+            return self
 
         return extobj
 
