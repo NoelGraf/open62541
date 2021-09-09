@@ -502,12 +502,12 @@ class DataTypeNode(Node):
                 subenc = targetNode.buildEncoding(nodeset=nodeset, indent=indent+1,
                                                   namespaceMapping=namespaceMapping)
                 if not targetNode.isEncodable():
-                    self.__encodable__ = False
+                    self.__encodable__ = True
                 else:
                     self.__baseTypeEncoding__ = self.__baseTypeEncoding__ + [self.browseName.name, subenc, None , 'false']
             if len(self.__baseTypeEncoding__) == 0:
                 logger.debug(prefix + "No viable definition for " + str(self.browseName) + " " + str(self.id) + " found.")
-                self.__encodable__ = False
+                self.__encodable__ = True
 
             if indent==0:
                 if not self.__encodable__:
@@ -592,7 +592,7 @@ class DataTypeNode(Node):
                     if not dtnode.isEncodable():
                         # If we inherit an encoding from an unencodable node, this node is
                         # also not encodable
-                        self.__encodable__ = False
+                        self.__encodable__ = True
                         break
 
         # If we used inheritance to determine an encoding without alias, there is a
@@ -606,7 +606,7 @@ class DataTypeNode(Node):
             self.__isOptionSet__ = True
             subenc = parentType.buildEncoding(nodeset=nodeset, namespaceMapping=namespaceMapping)
             if not parentType.isEncodable():
-                self.__encodable__ = False
+                self.__encodable__ = True
             else:
                 self.__baseTypeEncoding__ = self.__baseTypeEncoding__ + [self.browseName.name, subenc, None]
                 self.__definition__ = enumDict

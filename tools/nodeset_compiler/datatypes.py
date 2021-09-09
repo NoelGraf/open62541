@@ -193,7 +193,6 @@ class Value(object):
         if xmlvalue.localName == "ExtensionObject":
             extobj = ExtensionObject()
 
-            extobj.encodingRule = enc
             etype = xmlvalue.getElementsByTagName("TypeId")
             if len(etype) == 0:
                 logger.error(str(parent.id) + ": Did not find <TypeId> for ExtensionObject")
@@ -250,16 +249,19 @@ class Value(object):
                         if not e.is_optional:
                             t = self.getTypeByString(e.member_type.name, None)
                             extobj.value.append(t)
+                            extobj.encodingRule.append(e)
                         continue
                     if isinstance(e, StructMember):
                         if not e.name.lower() == ebodypart.localName.lower():
                             continue
+                        extobj.encodingRule.append(e)
                         if isinstance(e.member_type, BuiltinType):
                             if e.is_array:
                                 # Die Values müssen noch durchlaufen werden!
                                 extobj.value.append([])
                             else:
                                 t = self.getTypeByString(e.member_type.name, None)
+                                t.alias = ebodypart.localName
                                 t.parseXML(ebodypart)
                                 extobj.value.append(t)
                         elif isinstance(e.member_type, StructType):

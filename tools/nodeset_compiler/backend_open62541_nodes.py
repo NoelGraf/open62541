@@ -306,7 +306,7 @@ def generateExtensionObjectSubtypeCode(node, parent, nodeset, global_var_code, i
     for idx,subv in enumerate(values):
         if subv is None:
             continue
-        encField = node.encodingRule.members[idx].name
+        encField = node.encodingRule[idx].name
         memberName = makeCIdentifier(lowerFirstChar(encField))
 
         # Check if this is an array
