@@ -295,3 +295,11 @@ if(UA_ENABLE_NODESET_INJECTOR)
     set(UA_NODESETINJECTOR_SOURCE_FILES ${UA_NODESETINJECTOR_SOURCE_FILES} PARENT_SCOPE)
     set(UA_NODESETINJECTOR_EXAMPLE_NAMES ${UA_NODESETINJECTOR_EXAMPLE_NAMES} PARENT_SCOPE)
 endif()
+
+############
+# Analyses #
+############
+if(UA_ENABLE_PROFILING)
+    add_example(server_profile_default profiling/server_profile_default.c profiling/common.c profiling/common.h)
+    add_example(client_profile_default profiling/client_profile_default.c profiling/common.c profiling/common.h)
+endif()
