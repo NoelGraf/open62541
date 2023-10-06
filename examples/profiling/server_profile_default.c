@@ -1,7 +1,7 @@
 #include "common.h"
 #ifdef UA_ENABLE_ENCRYPTION
-#include "open62541/server_config_default.h"
-#include "open62541/plugin/create_certificate.h"
+#include <open62541/server_config_default.h>
+#include <open62541/plugin/create_certificate.h>
 #endif
 
 #include <open62541/server.h>
@@ -11,16 +11,44 @@
 #include <signal.h>
 
 UA_Boolean running = true;
+UA_Boolean wasConnected = false;
+UA_Boolean alarmIsSet = false;
 
 static void stopHandler(int sig) {
     UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND, "received ctrl-c");
     running = false;
 }
 
+static void alarm_handler(int sig) {
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_CLIENT, "The program has reached the specified time and is now exiting.");
+    running = false;
+}
+
+static void
+dummyCallback(UA_Server *server, void *data) {
+    size_t sessionCount = UA_Server_getStatistics(server).ss.currentSessionCount;
+    if(sessionCount > 0) {
+        wasConnected = true;
+        if(alarmIsSet) {
+            alarm(0);
+            alarmIsSet = false;
+        }
+    } else {
+        if(wasConnected && !alarmIsSet) {
+            UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_USERLAND,
+                        "Last client disconnected.");
+            int timeout = *(int*)data;
+            alarm(timeout);
+            alarmIsSet = true;
+        }
+    }
+}
+
 static void usage(void) {
     printf("Usage: server_profile_1 -n value -l value\n"
            "-n, --numberOfNodes\tNumber of nodes to create.\n"
            "-l, --nodesPerLevel\tNumber of nodes to be created on a level.\n"
+           "-t, --timeout\t\tNumber of seconds to keep the server running after the last client disconnects.\n"
 #ifdef UA_ENABLE_ENCRYPTION
            "--encryption\t\t\tUse encryption if specified.\n"
            "--cert\t\t\tPath to the server certificate.\n"
@@ -32,9 +60,11 @@ static void usage(void) {
 
 int main(int argc, char *argv[]) {
     signal(SIGINT, stopHandler);
+    signal(SIGALRM, alarm_handler);
 
     int numberOfNodes;
     int nodesPerLevel;
+    int timeout;
 #ifdef UA_ENABLE_ENCRYPTION
     bool enableEncryption = false;
     char *certfile = NULL;
@@ -67,6 +97,15 @@ int main(int argc, char *argv[]) {
            strcmp(argv[argpos], "-l") == 0) {
             argpos++;
             if(sscanf(argv[argpos], "%i", (int*)&nodesPerLevel) != 1) {
+                return EXIT_FAILURE;
+            }
+            continue;
+        }
+
+        if(strcmp(argv[argpos], "--timeout") == 0 ||
+           strcmp(argv[argpos], "-t") == 0) {
+            argpos++;
+            if(sscanf(argv[argpos], "%i", (int*)&timeout) != 1) {
                 return EXIT_FAILURE;
             }
             continue;
@@ -159,7 +198,17 @@ int main(int argc, char *argv[]) {
 
     generate_testnodeset(server, numberOfNodes, nodesPerLevel);
 
-    UA_Server_runUntilInterrupt(server);
+    UA_UInt64 id;
+    UA_Server_addRepeatedCallback(server, dummyCallback, &timeout, 1000, &id);
+
+    UA_Server_run_startup(server);
+    while(running) {
+        UA_Server_run_iterate(server, false);
+    }
+
+//    UA_Server_runUntilInterrupt(server);
+    UA_Server_removeCallback(server, id);
+    UA_Server_run_shutdown(server);
     UA_Server_delete(server);
     return 0;
 }

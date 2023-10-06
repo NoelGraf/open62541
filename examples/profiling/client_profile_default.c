@@ -19,11 +19,17 @@ static void stopHandler(int sign) {
     running = 0;
 }
 
+static void alarm_handler(int sign) {
+    UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_CLIENT, "The program has reached the specified time and is now exiting.");
+    running = 0;
+}
+
 static void usage(void) {
     printf("Usage: client_profile_1 -n value -s value -m value\n"
             "-n, --nodes\t\t\tNumber of nodes to be read via a repeated callback.\n"
             "-s, --numberOfSubs\t\tNumber of subscriptions to create.\n"
-            "-m, --monitoredItemsPerSubs\tNumber of MonitoredItems to be created per subscription."
+            "-m, --monitoredItemsPerSubs\tNumber of MonitoredItems to be created per subscription.\n"
+            "-t, --time\t\t\tAmount of seconds to keep the client running."
 #ifdef UA_ENABLE_ENCRYPTION
            "--encryption\t\t\tUse encryption if specified.\n"
            "--cert\t\t\tPath to the server certificate.\n"
@@ -36,11 +42,16 @@ static void usage(void) {
 }
 
 int main(int argc, char *argv[]) {
+    // Register the SIGINT handler
     signal(SIGINT, stopHandler); /* catches ctrl-c */
+
+    // Set an alarm for 10 seconds
+    signal(SIGALRM, alarm_handler);
 
     int nodes;
     int numberOfSubs;
     int monitoredItemsPerSubs;
+    int time;
 #ifdef UA_ENABLE_ENCRYPTION
     bool enableEncryption = false;
     char *certfile = NULL;
@@ -89,6 +100,15 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
+        if(strcmp(argv[argpos], "--time") == 0 ||
+           strcmp(argv[argpos], "-t") == 0) {
+            argpos++;
+            if(sscanf(argv[argpos], "%i", (int*)&time) != 1) {
+                return EXIT_FAILURE;
+            }
+            continue;
+        }
+
 #ifdef UA_ENABLE_ENCRYPTION
         if(strcmp(argv[argpos], "--encryption") == 0) {
             argpos++;
@@ -131,6 +151,8 @@ int main(int argc, char *argv[]) {
         usage();
         return EXIT_SUCCESS;
     }
+
+    alarm(time);
 
     UA_Client *client = UA_Client_new();
     UA_ClientConfig *cc = UA_Client_getConfig(client);
@@ -246,12 +268,12 @@ int main(int argc, char *argv[]) {
     createSubscriptionsWithMonitoredItems(client, info);
 
     /* For debugging purpose(valgrind) */
-    for(int i = 0; i < 6000; i++) {
-        UA_Client_run_iterate(client, 100);
-    }
-//    while(running) {
+//    for(int i = 0; i < 6000; i++) {
 //        UA_Client_run_iterate(client, 100);
 //    }
+    while(running) {
+        UA_Client_run_iterate(client, 100);
+    }
 
     /* Delete Repeated Callbacks */
     deleteRepeatedCallbacks(client, info);
