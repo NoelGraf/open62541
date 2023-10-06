@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
     // Register the SIGINT handler
     signal(SIGINT, stopHandler); /* catches ctrl-c */
 
-    // Set an alarm for 10 seconds
+    // Register the SIGALRM handler
     signal(SIGALRM, alarm_handler);
 
     int nodes;
@@ -56,7 +56,7 @@ int main(int argc, char *argv[]) {
     bool enableEncryption = false;
     char *certfile = NULL;
     char *keyfile = NULL;
-    UA_String securityPolicyUri = UA_STRING_NULL;
+    volatile UA_String securityPolicyUri = UA_STRING_NULL;
     UA_MessageSecurityMode securityMode = UA_MESSAGESECURITYMODE_INVALID;
 #endif
 
@@ -151,8 +151,6 @@ int main(int argc, char *argv[]) {
         usage();
         return EXIT_SUCCESS;
     }
-
-    alarm(time);
 
     UA_Client *client = UA_Client_new();
     UA_ClientConfig *cc = UA_Client_getConfig(client);
@@ -266,6 +264,9 @@ int main(int argc, char *argv[]) {
 
     /* Create Subscriptions with MonitoredItems */
     createSubscriptionsWithMonitoredItems(client, info);
+
+    /* Start alarm timer */
+    alarm(time);
 
     /* For debugging purpose(valgrind) */
 //    for(int i = 0; i < 6000; i++) {
