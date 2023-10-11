@@ -6,13 +6,13 @@ run_normal() {
     "$executable_path/$server" -n 10 -l 3 -t 5
   elif [ "$profile" -eq 2 ]; then
     echo "You entered profile 2."
-    "$executable_path/$server" -n 10 -l 3 -t 5 --encryption
+    "$executable_path/$server" -n 10 -l 3 -t 5 --encryption --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_key.der
   elif [ "$profile" -eq 3 ]; then
     echo "You entered profile 3."
-    "$executable_path/$server" -n 100 -l 10 -t 5 --encryption
+    "$executable_path/$server" -n 100 -l 10 -t 5 --encryption --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_key.der
   elif [ "$profile" -eq 4 ]; then
     echo "You entered profile 4."
-    "$executable_path/$server" -n 1000 -l 100 -t 5 --encryption
+    "$executable_path/$server" -n 1000 -l 100 -t 5 --encryption --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_key.der
   else
     echo "Invalid profile. Please enter 1, 2, 3 or 4."
   fi
@@ -24,13 +24,13 @@ run_valgrind() {
     valgrind --tool=massif "$executable_path/$server" -n 10 -l 3 -t 5
   elif [ "$profile" -eq 2 ]; then
     echo "You entered profile 2."
-    valgrind --tool=massif "$executable_path/$server" -n 10 -l 3 -t 5 --encryption
+    valgrind --tool=massif "$executable_path/$server" -n 10 -l 3 -t 5 --encryption --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_key.der
   elif [ "$profile" -eq 3 ]; then
     echo "You entered profile 3."
-    valgrind --tool=massif "$executable_path/$server" -n 100 -l 10 -t 5 --encryption
+    valgrind --tool=massif "$executable_path/$server" -n 100 -l 10 -t 5 --encryption --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_key.der
   elif [ "$profile" -eq 4 ]; then
     echo "You entered profile 4."
-    valgrind --tool=massif "$executable_path/$server" -n 1000 -l 100 -t 5 --encryption
+    valgrind --tool=massif "$executable_path/$server" -n 1000 -l 100 -t 5 --encryption --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_key.der
   else
     echo "Invalid profile. Please enter 1, 2, 3 or 4."
   fi
@@ -40,16 +40,16 @@ run_perf() {
   perf probe -x /lib64/libc.so.6 malloc
   if [ "$profile" -eq 1 ]; then
     echo "You entered profile 1."
-    valgrind --tool=massif "$executable_path/$server" -n 10 -l 3 -t 5
+    sudo /home/noel/Dokumente/Libs/linux-6.2.16/tools/perf/perf record -e 'probe_libc:malloc' -aRg "$executable_path/$server" -n 10 -l 3 -t 5
   elif [ "$profile" -eq 2 ]; then
     echo "You entered profile 2."
-    valgrind --tool=massif "$executable_path/$server" -n 10 -l 3 -t 5 --encryption
+    sudo /home/noel/Dokumente/Libs/linux-6.2.16/tools/perf/perf record -e 'probe_libc:malloc' -aRg "$executable_path/$server" -n 10 -l 3 -t 5 --encryption --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_key.der
   elif [ "$profile" -eq 3 ]; then
     echo "You entered profile 3."
-    valgrind --tool=massif "$executable_path/$server" -n 100 -l 10 -t 5 --encryption
+    sudo /home/noel/Dokumente/Libs/linux-6.2.16/tools/perf/perf record -e 'probe_libc:malloc' -aRg "$executable_path/$server" -n 100 -l 10 -t 5 --encryption --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_key.der
   elif [ "$profile" -eq 4 ]; then
     echo "You entered profile 4."
-    valgrind --tool=massif "$executable_path/$server" -n 1000 -l 100 -t 5 --encryption
+    vsudo /home/noel/Dokumente/Libs/linux-6.2.16/tools/perf/perf record -e 'probe_libc:malloc' -aRg "$executable_path/$server" -n 1000 -l 100 -t 5 --encryption --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/server_key.der
   else
     echo "Invalid profile. Please enter 1, 2, 3 or 4."
   fi

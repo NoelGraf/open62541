@@ -28,10 +28,10 @@ for ((i = 1; i <= numOfClients; i++)); do
     "$executable_path/$client" -n 50 -s 1 -m 10 -t 10 &
   elif [ "$profile" -eq 3 ]; then
     echo "You entered profile 3."
-    "$executable_path/$client" -n 100 -s 10 -m 10 -t 10 --securityMode 3 --securityPolicy http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256 &
+    "$executable_path/$client" -n 100 -s 10 -m 10 -t 10 --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/client_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/client_key.der --securityMode 3 --securityPolicy http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256 &
   elif [ "$profile" -eq 4 ]; then
     echo "You entered profile 4."
-    "$executable_path/$client" -n 1000 -s 10 -m 10 -t 10 --securityMode 3 --securityPolicy http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256 &
+    "$executable_path/$client" -n 1000 -s 10 -m 10 -t 10 --cert /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/client_cert.der --key /home/noel/Dokumente/Arbeit/Fraunhofer/Repo/noel/open62541/tools/certs/client_key.der --securityMode 3 --securityPolicy http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256 &
   else
     echo "Invalid profile. Please enter 1, 2, 3 or 4."
   fi

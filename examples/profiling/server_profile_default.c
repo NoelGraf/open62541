@@ -113,7 +113,6 @@ int main(int argc, char *argv[]) {
 
 #ifdef UA_ENABLE_ENCRYPTION
         if(strcmp(argv[argpos], "--encryption") == 0) {
-            argpos++;
             enableEncryption = true;
             continue;
         }
@@ -176,11 +175,11 @@ int main(int argc, char *argv[]) {
                             UA_StatusCode_name(statusCertGen));
                 return EXIT_FAILURE;
             }
+#else
+            return EXIT_FAILURE;
+#endif
         }
     }
-#else
-        return EXIT_FAILURE;
-#endif
 #endif
 
     UA_Server *server = UA_Server_new();
