@@ -15,40 +15,12 @@ _UA_BEGIN_DECLS
 
 /* Default implementation that accepts all certificates */
 UA_EXPORT void
-UA_CertificateVerification_AcceptAll(UA_CertificateGroup *certGroup);
+UA_CertificateGroup_AcceptAll(UA_CertificateGroup *certGroup);
 
-#ifdef UA_ENABLE_ENCRYPTION
-
-/* Accept certificates based on a trust-list and a revocation-list. Based on
- * mbedTLS. */
 UA_EXPORT UA_StatusCode
-UA_CertificateVerification_Trustlist(UA_CertificateGroup *certGroup,
-                                     const UA_ByteString *certificateTrustList,
-                                     size_t certificateTrustListSize,
-                                     const UA_ByteString *certificateIssuerList,
-                                     size_t certificateIssuerListSize,
-                                     const UA_ByteString *certificateRevocationList,
-                                     size_t certificateRevocationListSize);
-
-#ifdef __linux__ /* Linux only so far */
-
-#ifdef UA_ENABLE_CERT_REJECTED_DIR
-UA_EXPORT UA_StatusCode
-UA_CertificateVerification_CertFolders(UA_CertificateGroup *certGroup,
-                                       const char *trustListFolder,
-                                       const char *issuerListFolder,
-                                       const char *revocationListFolder,
-                                       const char *rejectedListFolder);
-#else
-UA_EXPORT UA_StatusCode
-UA_CertificateVerification_CertFolders(UA_CertificateGroup *certGroup,
-                                       const char *trustListFolder,
-                                       const char *issuerListFolder,
-                                       const char *revocationListFolder);
-#endif
-#endif
-
-#endif
+UA_CertificateGroup_Filestore(UA_CertificateGroup *certGroup,
+                              UA_NodeId *certificateGroupId,
+                              UA_String storePath);
 
 _UA_END_DECLS
 
