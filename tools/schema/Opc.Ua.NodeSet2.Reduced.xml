@@ -1558,6 +1558,35 @@
       <Field Name="IssuerCrls" DataType="i=15" ValueRank="1" />
     </Definition>
   </UADataType>
+  <UADataType NodeId="i=12552" BrowseName="TrustListMasks">
+    <DisplayName>TrustListMasks</DisplayName>
+    <Category>GDS Certificate Manager Pull Model</Category>
+    <Category>Push Model for Global Certificate and TrustList Management</Category>
+    <References>
+      <Reference ReferenceType="HasProperty">i=12553</Reference>
+      <Reference ReferenceType="HasSubtype" IsForward="false">i=29</Reference>
+    </References>
+    <Definition Name="TrustListMasks">
+      <Field Name="None" Value="0">
+        <Description>No fields are provided.</Description>
+      </Field>
+      <Field Name="TrustedCertificates" Value="1">
+        <Description>The TrustedCertificates are provided.</Description>
+      </Field>
+      <Field Name="TrustedCrls" Value="2">
+        <Description>The TrustedCrls are provided.</Description>
+      </Field>
+      <Field Name="IssuerCertificates" Value="4">
+        <Description>The IssuerCertificates are provided.</Description>
+      </Field>
+      <Field Name="IssuerCrls" Value="8">
+        <Description>The IssuerCrls are provided.</Description>
+      </Field>
+      <Field Name="All" Value="15">
+        <Description>All fields are provided.</Description>
+      </Field>
+    </Definition>
+  </UADataType>
   <UAObject NodeId="i=298" BrowseName="Default Binary" SymbolicName="DefaultBinary">
     <DisplayName>Default Binary</DisplayName>
     <References>

@@ -8,7 +8,6 @@
  */
 
 #include <open62541/util.h>
-#include <open62541/types_generated_handling.h>
 
 #include "ua_certificategroup_common.h"
 

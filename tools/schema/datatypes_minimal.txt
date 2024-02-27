@@ -121,3 +121,4 @@ NamingRuleType
 CancelRequest
 CancelResponse
 TrustListDataType
+TrustListMasks
