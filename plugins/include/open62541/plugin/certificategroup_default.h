@@ -20,7 +20,7 @@ UA_CertificateGroup_AcceptAll(UA_CertificateGroup *certGroup);
 UA_EXPORT UA_StatusCode
 UA_CertificateGroup_Filestore(UA_CertificateGroup *certGroup,
                               UA_NodeId *certificateGroupId,
-                              UA_String storePath);
+                              UA_String *storePath);
 
 _UA_END_DECLS
 

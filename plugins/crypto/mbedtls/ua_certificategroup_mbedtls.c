@@ -14,6 +14,7 @@
 #ifdef UA_ENABLE_ENCRYPTION_MBEDTLS
 
 #include "securitypolicy_mbedtls_common.h"
+#include "../ua_certificategroup_common.h"
 
 #include <mbedtls/x509.h>
 #include <mbedtls/x509_crt.h>
@@ -67,209 +68,119 @@ UA_Bstrstr(const unsigned char *s1, size_t l1, const unsigned char *s2, size_t l
     return NULL;
 }
 
-// mbedTLS expects PEM data to be null terminated
-// The data length parameter must include the null terminator
-static UA_ByteString copyDataFormatAware(const UA_ByteString *data)
-{
-    UA_ByteString result;
-    UA_ByteString_init(&result);
-
-    if (!data->length)
-        return result;
-
-    if (data->length && data->data[0] == '-') {
-        UA_ByteString_allocBuffer(&result, data->length + 1);
-        memcpy(result.data, data->data, data->length);
-        result.data[data->length] = '\0';
-    } else {
-        UA_ByteString_copy(data, &result);
-    }
-
-    return result;
-}
-
 typedef struct {
-    /* If the folders are defined, we use them to reload the certificates during
-     * runtime */
-    UA_String trustListFolder;
-    UA_String issuerListFolder;
-    UA_String revocationListFolder;
-    UA_String rejectedListFolder;
-
-    mbedtls_x509_crt certificateTrustList;
-    mbedtls_x509_crt certificateIssuerList;
-    mbedtls_x509_crl certificateRevocationList;
+    mbedtls_x509_crt trustedCertificates;
+    mbedtls_x509_crt trustedIssuers;
+    mbedtls_x509_crl trustedCertificateCrls;
+    mbedtls_x509_crl trustedIssuerCrls;
 } CertInfo;
 
-#ifdef __linux__ /* Linux only so far */
-
-#include <dirent.h>
-#include <limits.h>
-
-static UA_StatusCode
-fileNamesFromFolder(const UA_String *folder, size_t *pathsSize, UA_String **paths) {
-    char buf[PATH_MAX + 1];
-    if(folder->length > PATH_MAX)
-        return UA_STATUSCODE_BADINTERNALERROR;
-
-    memcpy(buf, folder->data, folder->length);
-    buf[folder->length] = 0;
-
-    DIR *dir = opendir(buf);
-    if(!dir)
-        return UA_STATUSCODE_BADINTERNALERROR;
-
-    *paths = (UA_String*)UA_Array_new(256, &UA_TYPES[UA_TYPES_STRING]);
-    if(*paths == NULL) {
-        closedir(dir);
-        return UA_STATUSCODE_BADOUTOFMEMORY;
-    }
-
-    struct dirent *ent;
-    char buf2[PATH_MAX + 1];
-    char *res = realpath(buf, buf2);
-    if(!res) {
-        closedir(dir);
-        return UA_STATUSCODE_BADINTERNALERROR;
-    }
-    size_t pathlen = strlen(buf2);
-    *pathsSize = 0;
-    while((ent = readdir (dir)) != NULL && *pathsSize < 256) {
-        if(ent->d_type != DT_REG)
-            continue;
-        buf2[pathlen] = '/';
-        buf2[pathlen+1] = 0;
-        strcat(buf2, ent->d_name);
-        (*paths)[*pathsSize] = UA_STRING_ALLOC(buf2);
-        *pathsSize += 1;
-    }
-    closedir(dir);
-
-    if(*pathsSize == 0) {
-        UA_free(*paths);
-        *paths = NULL;
-    }
-    return UA_STATUSCODE_GOOD;
+static void
+CertInfo_clear(CertInfo* certInfo){
+    mbedtls_x509_crt_free(&certInfo->trustedCertificates);
+    mbedtls_x509_crt_free(&certInfo->trustedIssuers);
+    mbedtls_x509_crl_free(&certInfo->trustedCertificateCrls);
+    mbedtls_x509_crl_free(&certInfo->trustedIssuerCrls);
 }
 
+static void
+CertInfo_init(CertInfo* certInfo){
+    mbedtls_x509_crt_init(&certInfo->trustedCertificates);
+    mbedtls_x509_crt_init(&certInfo->trustedIssuers);
+    mbedtls_x509_crl_init(&certInfo->trustedCertificateCrls);
+    mbedtls_x509_crl_init(&certInfo->trustedIssuerCrls);
+}
+
+#include <dirent.h>
+
 static UA_StatusCode
-reloadCertificates(const UA_CertificateGroup *certGroup, CertInfo *ci) {
+reloadCertificates(CertInfo *ci, UA_CertificateGroup *certGroup,
+                   const UA_ByteString *issuerCertificates, size_t issuerCertificatesSize) {
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
     int err = 0;
-    int internalErrorFlag = 0;
 
-    /* Load the trustlists */
-    if(ci->trustListFolder.length > 0) {
-        UA_LOG_INFO(certGroup->logging, UA_LOGCATEGORY_SERVER, "Reloading the trust-list");
-        mbedtls_x509_crt_free(&ci->certificateTrustList);
-        mbedtls_x509_crt_init(&ci->certificateTrustList);
+    UA_ByteString data;
+    UA_ByteString_init(&data);
 
-        char f[PATH_MAX];
-        memcpy(f, ci->trustListFolder.data, ci->trustListFolder.length);
-        f[ci->trustListFolder.length] = 0;
-        err = mbedtls_x509_crt_parse_path(&ci->certificateTrustList, f);
-        if(err == 0) {
-            UA_LOG_INFO(certGroup->logging, UA_LOGCATEGORY_SERVER,
-                        "Loaded certificate from %s", f);
-        } else {
-            char errBuff[300];
-            mbedtls_strerror(err, errBuff, 300);
-            UA_LOG_INFO(certGroup->logging, UA_LOGCATEGORY_SERVER,
-                        "Failed to load certificate from %s, mbedTLS error: %s (error code: %d)", f, errBuff, err);
-            internalErrorFlag = 1;
+    UA_TrustListDataType trustList;
+    UA_TrustListDataType_init(&trustList);
+    trustList.specifiedLists = UA_TRUSTLISTMASKS_ALL;
+    retval = certGroup->getTrustList(certGroup, &trustList);
+    if(!UA_StatusCode_isGood(retval))
+        goto error;
+
+    /* Additional issuer certificates to verify the certificate */
+    if(issuerCertificates != NULL && issuerCertificatesSize > 0) {
+        for(size_t i = 0; i < issuerCertificatesSize; ++i) {
+            data = UA_mbedTLS_CopyDataFormatAware(&issuerCertificates[i]);
+            err = mbedtls_x509_crt_parse(&ci->trustedIssuers,
+                                         data.data,
+                                         data.length);
+            UA_ByteString_clear(&data);
+            if(err)
+                goto error;
         }
     }
-
-    /* Load the revocationlists */
-    if(ci->revocationListFolder.length > 0) {
-        UA_LOG_INFO(certGroup->logging, UA_LOGCATEGORY_SERVER, "Reloading the revocation-list");
-        size_t pathsSize = 0;
-        UA_String *paths = NULL;
-        retval = fileNamesFromFolder(&ci->revocationListFolder, &pathsSize, &paths);
-        if(retval != UA_STATUSCODE_GOOD)
-            return retval;
-        mbedtls_x509_crl_free(&ci->certificateRevocationList);
-        mbedtls_x509_crl_init(&ci->certificateRevocationList);
-        for(size_t i = 0; i < pathsSize; i++) {
-            char f[PATH_MAX];
-            memcpy(f, paths[i].data, paths[i].length);
-            f[paths[i].length] = 0;
-            err = mbedtls_x509_crl_parse_file(&ci->certificateRevocationList, f);
-            if(err == 0) {
-                UA_LOG_INFO(certGroup->logging, UA_LOGCATEGORY_SERVER,
-                            "Loaded certificate from %.*s",
-                            (int)paths[i].length, paths[i].data);
-            } else {
-                char errBuff[300];
-                mbedtls_strerror(err, errBuff, 300);
-                UA_LOG_INFO(certGroup->logging, UA_LOGCATEGORY_SERVER,
-                            "Failed to load certificate from %.*s, mbedTLS error: %s (error code: %d)",
-                            (int)paths[i].length, paths[i].data, errBuff, err);
-                internalErrorFlag = 1;
-            }
-        }
-        UA_Array_delete(paths, pathsSize, &UA_TYPES[UA_TYPES_STRING]);
-        paths = NULL;
-        pathsSize = 0;
+    for(size_t i = 0; i < trustList.trustedCertificatesSize; ++i) {
+        data = UA_mbedTLS_CopyDataFormatAware(&trustList.trustedCertificates[i]);
+        err = mbedtls_x509_crt_parse(&ci->trustedCertificates,
+                                     data.data,
+                                     data.length);
+        UA_ByteString_clear(&data);
+        if(err)
+            goto error;
+    }
+    for(size_t i = 0; i < trustList.issuerCertificatesSize; ++i) {
+        data = UA_mbedTLS_CopyDataFormatAware(&trustList.issuerCertificates[i]);
+        err = mbedtls_x509_crt_parse(&ci->trustedIssuers,
+                                     data.data,
+                                     data.length);
+        UA_ByteString_clear(&data);
+        if(err)
+            goto error;
+    }
+    for(size_t i = 0; i < trustList.trustedCrlsSize; i++) {
+        data = UA_mbedTLS_CopyDataFormatAware(&trustList.trustedCrls[i]);
+        err = mbedtls_x509_crl_parse(&ci->trustedCertificateCrls,
+                                     data.data,
+                                     data.length);
+        UA_ByteString_clear(&data);
+        if(err)
+            goto error;
+    }
+    for(size_t i = 0; i < trustList.issuerCrlsSize; i++) {
+        data = UA_mbedTLS_CopyDataFormatAware(&trustList.issuerCrls[i]);
+        err = mbedtls_x509_crl_parse(&ci->trustedIssuerCrls,
+                                     data.data,
+                                     data.length);
+        UA_ByteString_clear(&data);
+        if(err)
+            goto error;
     }
 
-    /* Load the issuerlists */
-    if(ci->issuerListFolder.length > 0) {
-        UA_LOG_INFO(certGroup->logging, UA_LOGCATEGORY_SERVER, "Reloading the issuer-list");
-        mbedtls_x509_crt_free(&ci->certificateIssuerList);
-        mbedtls_x509_crt_init(&ci->certificateIssuerList);
-        char f[PATH_MAX];
-        memcpy(f, ci->issuerListFolder.data, ci->issuerListFolder.length);
-        f[ci->issuerListFolder.length] = 0;
-        err = mbedtls_x509_crt_parse_path(&ci->certificateIssuerList, f);
-        if(err == 0) {
-            UA_LOG_INFO(certGroup->logging, UA_LOGCATEGORY_SERVER,
-                        "Loaded certificate from %s", f);
-        } else {
-            char errBuff[300];
-            mbedtls_strerror(err, errBuff, 300);
-            UA_LOG_INFO(certGroup->logging, UA_LOGCATEGORY_SERVER,
-                        "Failed to load certificate from %s, mbedTLS error: %s (error code: %d)",
-                        f, errBuff, err);
-            internalErrorFlag = 1;
-        }
-    }
-
-    if(internalErrorFlag) {
+    error:
+    UA_clear(&trustList, &UA_TYPES[UA_TYPES_TRUSTLISTDATATYPE]);
+    if(err) {
         retval = UA_STATUSCODE_BADINTERNALERROR;
     }
     return retval;
 }
 
-#endif
-
 static UA_StatusCode
-certificateGroup_verify(UA_CertificateGroup *certGroup,
-                        const UA_ByteString *certificate) {
-    CertInfo *ci;
-    if(!certGroup)
-        return UA_STATUSCODE_BADINTERNALERROR;
-    ci = (CertInfo*)certGroup->context;
-    if(!ci)
-        return UA_STATUSCODE_BADINTERNALERROR;
+FileCertStore_verifyCertificate(UA_CertificateGroup *certGroup,
+                               const UA_ByteString *certificate,
+                               const UA_ByteString *issuerCertificates,
+                               size_t issuerCertificatesSize) {
+    /* Check parameter */
+    if(certGroup == NULL || certificate == NULL) {
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
 
-#ifdef __linux__ /* Reload certificates if folder paths are specified */
-    UA_StatusCode certFlag = reloadCertificates(certGroup, ci);
+    CertInfo ci;
+    CertInfo_init(&ci);
+    UA_StatusCode certFlag = reloadCertificates(&ci, certGroup, issuerCertificates, issuerCertificatesSize);
     if(certFlag != UA_STATUSCODE_GOOD) {
         return certFlag;
-    }
-#endif
-
-    if(ci->trustListFolder.length == 0 &&
-       ci->issuerListFolder.length == 0 &&
-       ci->revocationListFolder.length == 0 &&
-       ci->rejectedListFolder.length == 0 &&
-       ci->certificateTrustList.raw.len == 0 &&
-       ci->certificateIssuerList.raw.len == 0 &&
-       ci->certificateRevocationList.raw.len == 0) {
-        UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_USERLAND,
-                       "No certificate store configured. Accepting the certificate.");
-        return UA_STATUSCODE_GOOD;
     }
 
     /* Parse the certificate */
@@ -301,19 +212,20 @@ certificateGroup_verify(UA_CertificateGroup *certGroup,
         /* mbedtls_strerror(mbedErr, errBuff, 300); */
         /* UA_LOG_WARNING(data->policyContext->securityPolicy->logger, UA_LOGCATEGORY_SECURITYPOLICY, */
         /*                "Could not parse the remote certificate with error: %s", errBuff); */
+        CertInfo_clear(&ci);
         return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
     }
 
     /* Verify */
     mbedtls_x509_crt_profile crtProfile = {
-        MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA1) | MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA256),
-        0xFFFFFF, 0x000000, 128 * 8 // in bits
+            MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA1) | MBEDTLS_X509_ID_FLAG(MBEDTLS_MD_SHA256),
+            0xFFFFFF, 0x000000, 128 * 8 // in bits
     }; // TODO: remove magic numbers
 
     uint32_t flags = 0;
     mbedErr = mbedtls_x509_crt_verify_with_profile(&remoteCertificate,
-                                                   &ci->certificateTrustList,
-                                                   &ci->certificateRevocationList,
+                                                   &ci.trustedCertificates,
+                                                   &ci.trustedCertificateCrls,
                                                    &crtProfile, NULL, &flags, NULL, NULL);
 
     /* Flag to check if the remote certificate is trusted or not */
@@ -321,7 +233,7 @@ certificateGroup_verify(UA_CertificateGroup *certGroup,
 
     /* Check if the remoteCertificate is present in the trustList while mbedErr value is not zero */
     if(mbedErr && !(flags & MBEDTLS_X509_BADCERT_EXPIRED) && !(flags & MBEDTLS_X509_BADCERT_FUTURE)) {
-        for(tempCert = &ci->certificateTrustList; tempCert != NULL; tempCert = tempCert->next) {
+        for(tempCert = &ci.trustedCertificates; tempCert != NULL; tempCert = tempCert->next) {
             if(remoteCertificate.raw.len == tempCert->raw.len &&
                memcmp(remoteCertificate.raw.p, tempCert->raw.p, remoteCertificate.raw.len) == 0) {
                 TRUSTED = REMOTECERTIFICATETRUSTED;
@@ -334,8 +246,8 @@ certificateGroup_verify(UA_CertificateGroup *certGroup,
      * of remoteCertificate is present in issuerList */
     if(TRUSTED && mbedErr) {
         mbedErr = mbedtls_x509_crt_verify_with_profile(&remoteCertificate,
-                                                       &ci->certificateIssuerList,
-                                                       &ci->certificateRevocationList,
+                                                       &ci.trustedIssuers,
+                                                       &ci.trustedIssuerCrls,
                                                        &crtProfile, NULL, &flags, NULL, NULL);
 
         /* Check if the parent certificate has a CRL file available */
@@ -344,9 +256,9 @@ certificateGroup_verify(UA_CertificateGroup *certGroup,
             int dualParent = 0;
 
             /* Identify the topmost parent certificate for the remoteCertificate */
-            for(parentCert = &ci->certificateIssuerList; parentCert != NULL; parentCert = parentCert->next ) {
+            for(parentCert = &ci.trustedIssuers; parentCert != NULL; parentCert = parentCert->next ) {
                 if(memcmp(remoteCertificate.issuer_raw.p, parentCert->subject_raw.p, parentCert->subject_raw.len) == 0) {
-                    for(parentCert_2 = &ci->certificateTrustList; parentCert_2 != NULL; parentCert_2 = parentCert_2->next) {
+                    for(parentCert_2 = &ci.trustedCertificates; parentCert_2 != NULL; parentCert_2 = parentCert_2->next) {
                         if(memcmp(parentCert->issuer_raw.p, parentCert_2->subject_raw.p, parentCert_2->subject_raw.len) == 0) {
                             dualParent = DUALPARENT;
                             break;
@@ -370,7 +282,7 @@ certificateGroup_verify(UA_CertificateGroup *certGroup,
             /* If a parent certificate is found traverse the revocationList and identify
              * if there is any CRL file that corresponds to the parentCertificate */
             if(parentFound == PARENTFOUND) {
-                tempCrl = &ci->certificateRevocationList;
+                tempCrl = &ci.trustedCertificateCrls;
                 while(tempCrl != NULL) {
                     if(tempCrl->version != 0 &&
                        tempCrl->issuer_raw.len == parentCert->subject_raw.len &&
@@ -387,32 +299,33 @@ certificateGroup_verify(UA_CertificateGroup *certGroup,
                 /* If the CRL file corresponding to the parent certificate is not present
                  * then return UA_STATUSCODE_BADCERTIFICATEISSUERREVOCATIONUNKNOWN */
                 if(!issuerKnown) {
+                    if(FileCertStore_addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
+                        UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
+                                       "Could not append certificate to rejected list");
+                    }
+                    CertInfo_clear(&ci);
                     return UA_STATUSCODE_BADCERTIFICATEISSUERREVOCATIONUNKNOWN;
                 }
-
             }
-
         }
-
     }
     else if(!mbedErr && !TRUSTED) {
         /* This else if section is to identify if the parent certificate which is present in trustList
          * has CRL file corresponding to it */
 
         /* Identify the parent certificate of the remoteCertificate */
-        for(parentCert = &ci->certificateTrustList; parentCert != NULL; parentCert = parentCert->next) {
+        for(parentCert = &ci.trustedCertificates; parentCert != NULL; parentCert = parentCert->next) {
             if(memcmp(remoteCertificate.issuer_raw.p, parentCert->subject_raw.p, parentCert->subject_raw.len) == 0) {
                 parentFound = PARENTFOUND;
                 break;
             }
-
         }
 
         /* If the parent certificate is found traverse the revocationList and identify
          * if there is any CRL file that corresponds to the parentCertificate */
         if(parentFound == PARENTFOUND &&
            memcmp(remoteCertificate.issuer_raw.p, remoteCertificate.subject_raw.p, remoteCertificate.subject_raw.len) != 0) {
-            tempCrl = &ci->certificateRevocationList;
+            tempCrl = &ci.trustedCertificateCrls;
             while(tempCrl != NULL) {
                 if(tempCrl->version != 0 &&
                    tempCrl->issuer_raw.len == parentCert->subject_raw.len &&
@@ -429,6 +342,11 @@ certificateGroup_verify(UA_CertificateGroup *certGroup,
             /* If the CRL file corresponding to the parent certificate is not present
              * then return UA_STATUSCODE_BADCERTIFICATEREVOCATIONUNKNOWN */
             if(!issuerKnown) {
+                if(FileCertStore_addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
+                    UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
+                                   "Could not append certificate to rejected list");
+                }
+                CertInfo_clear(&ci);
                 return UA_STATUSCODE_BADCERTIFICATEREVOCATIONUNKNOWN;
             }
 
@@ -447,11 +365,21 @@ certificateGroup_verify(UA_CertificateGroup *certGroup,
 #if MBEDTLS_VERSION_NUMBER >= 0x02060000 && MBEDTLS_VERSION_NUMBER < 0x03000000
     if((remoteCertificate.key_usage & MBEDTLS_X509_KU_KEY_CERT_SIGN) &&
        (remoteCertificate.key_usage & MBEDTLS_X509_KU_CRL_SIGN)) {
+        if(FileCertStore_addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
+            UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
+                           "Could not append certificate to rejected list");
+        }
+        CertInfo_clear(&ci);
         return UA_STATUSCODE_BADCERTIFICATEUSENOTALLOWED;
     }
 #else
     if((remoteCertificate.private_key_usage & MBEDTLS_X509_KU_KEY_CERT_SIGN) &&
        (remoteCertificate.private_key_usage & MBEDTLS_X509_KU_CRL_SIGN)) {
+        if(certGroup->addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
+            UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
+                           "Could not append certificate to rejected list");
+        }
+        CertInfo_clear(&ci);
         return UA_STATUSCODE_BADCERTIFICATEUSENOTALLOWED;
     }
 #endif
@@ -466,203 +394,82 @@ certificateGroup_verify(UA_CertificateGroup *certGroup,
                        "Verifying the certificate failed with error: %.*s", len-1, buff);
 #endif
         if(flags & (uint32_t)MBEDTLS_X509_BADCERT_NOT_TRUSTED) {
+            if(FileCertStore_addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
+                UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
+                               "Could not append certificate to rejected list");
+            }
             retval = UA_STATUSCODE_BADCERTIFICATEUNTRUSTED;
         } else if(flags & (uint32_t)MBEDTLS_X509_BADCERT_FUTURE ||
                   flags & (uint32_t)MBEDTLS_X509_BADCERT_EXPIRED) {
             retval = UA_STATUSCODE_BADCERTIFICATETIMEINVALID;
+            /* Debug purpose */
         } else if(flags & (uint32_t)MBEDTLS_X509_BADCERT_REVOKED ||
                   flags & (uint32_t)MBEDTLS_X509_BADCRL_EXPIRED) {
             retval = UA_STATUSCODE_BADCERTIFICATEREVOKED;
         } else {
             retval = UA_STATUSCODE_BADSECURITYCHECKSFAILED;
         }
-
-#ifdef UA_ENABLE_CERT_REJECTED_DIR
-        if(ci->rejectedListFolder.length !=0) {
-            char rejectedFileName[256] = {0};
-            UA_ByteString thumbprint;
-            UA_ByteString_allocBuffer(&thumbprint, UA_SHA1_LENGTH);
-            if(mbedtls_thumbprint_sha1(certificate, &thumbprint) == UA_STATUSCODE_GOOD) {
-                static const char hex2char[] = "0123456789ABCDEF";
-                for (size_t pos = 0, namePos = 0; pos < thumbprint.length; pos++) {
-                    rejectedFileName[namePos++] = hex2char[(thumbprint.data[pos] & 0xf0) >> 4];
-                    rejectedFileName[namePos++] = hex2char[thumbprint.data[pos] & 0x0f];
-                }
-                strcat(rejectedFileName, ".der");
-            } else {
-                UA_UInt64 dt = (UA_UInt64) UA_DateTime_now();
-                sprintf(rejectedFileName, "cert_%" PRIu64 ".der", dt);
-            }
-            UA_ByteString_clear(&thumbprint);
-
-            char *rejectedFullFileName = (char *) calloc(ci->rejectedListFolder.length + 1 /* '/' */ + strlen(rejectedFileName) + 1, sizeof(char));
-            if (rejectedFullFileName) {
-                memcpy(rejectedFullFileName, ci->rejectedListFolder.data, ci->rejectedListFolder.length);
-                rejectedFullFileName[ci->rejectedListFolder.length] = '/';
-                memcpy(&rejectedFullFileName[ci->rejectedListFolder.length + 1], rejectedFileName, strlen(rejectedFileName));
-                FILE * fp_rejectedFile = fopen(rejectedFullFileName, "wb");
-                if (fp_rejectedFile) {
-                    fwrite(certificate->data, sizeof(certificate->data[0]), certificate->length, fp_rejectedFile);
-                    fclose(fp_rejectedFile);
-                }
-                free(rejectedFullFileName);
-            }
-        }
-#endif
     }
 
+    CertInfo_clear(&ci);
     mbedtls_x509_crt_free(&remoteCertificate);
     return retval;
 }
 
-static void
-certificateGroup_clear(UA_CertificateGroup *certGroup) {
-    CertInfo *ci = (CertInfo*)certGroup->context;
-    if(!ci)
-        return;
-    mbedtls_x509_crt_free(&ci->certificateTrustList);
-    mbedtls_x509_crl_free(&ci->certificateRevocationList);
-    mbedtls_x509_crt_free(&ci->certificateIssuerList);
-    UA_String_clear(&ci->trustListFolder);
-    UA_String_clear(&ci->issuerListFolder);
-    UA_String_clear(&ci->revocationListFolder);
-#ifdef UA_ENABLE_CERT_REJECTED_DIR
-    UA_String_clear(&ci->rejectedListFolder);
-#endif
-    UA_free(ci);
-    certGroup->context = NULL;
-}
-
 UA_StatusCode
-UA_CertificateVerification_Trustlist(UA_CertificateGroup *certGroup,
-                                     const UA_ByteString *certificateTrustList,
-                                     size_t certificateTrustListSize,
-                                     const UA_ByteString *certificateIssuerList,
-                                     size_t certificateIssuerListSize,
-                                     const UA_ByteString *certificateRevocationList,
-                                     size_t certificateRevocationListSize) {
-
-    if(certGroup == NULL) {
+UA_CertificateGroup_Filestore(UA_CertificateGroup *certGroup, UA_NodeId *certificateGroupId, UA_String *storePath) {
+    /* Check parameter */
+    if(certGroup == NULL || certificateGroupId == NULL) {
         return UA_STATUSCODE_BADINTERNALERROR;
     }
 
-    /* Clear if the plugin is already initialized */
     if(certGroup->clear)
         certGroup->clear(certGroup);
+    memset(certGroup, 0, sizeof(UA_CertificateGroup));
 
-    CertInfo *ci = (CertInfo*)UA_malloc(sizeof(CertInfo));
-    if(!ci)
-        return UA_STATUSCODE_BADOUTOFMEMORY;
-    memset(ci, 0, sizeof(CertInfo));
-    mbedtls_x509_crt_init(&ci->certificateTrustList);
-    mbedtls_x509_crl_init(&ci->certificateRevocationList);
-    mbedtls_x509_crt_init(&ci->certificateIssuerList);
+    UA_NodeId_copy(certificateGroupId, &certGroup->certificateGroupId);
 
-    certGroup->context = (void*)ci;
-    certGroup->verifyCertificate = certificateGroup_verify;
-    certGroup->clear = certificateGroup_clear;
-    certGroup->getTrustList = NULL;
-    certGroup->setTrustList = NULL;
-    certGroup->addToTrustList = NULL;
-    certGroup->removeFromTrustList = NULL;
-
-    int err;
-    UA_ByteString data;
-    UA_ByteString_init(&data);
-
-    for(size_t i = 0; i < certificateTrustListSize; i++) {
-        data = copyDataFormatAware(&certificateTrustList[i]);
-        err = mbedtls_x509_crt_parse(&ci->certificateTrustList,
-                                     data.data,
-                                     data.length);
-        UA_ByteString_clear(&data);
-        if(err)
-            goto error;
-    }
-    for(size_t i = 0; i < certificateIssuerListSize; i++) {
-        data = copyDataFormatAware(&certificateIssuerList[i]);
-        err = mbedtls_x509_crt_parse(&ci->certificateIssuerList,
-                                     data.data,
-                                     data.length);
-        UA_ByteString_clear(&data);
-        if(err)
-            goto error;
-    }
-    for(size_t i = 0; i < certificateRevocationListSize; i++) {
-        data = copyDataFormatAware(&certificateRevocationList[i]);
-        err = mbedtls_x509_crl_parse(&ci->certificateRevocationList,
-                                     data.data,
-                                     data.length);
-        UA_ByteString_clear(&data);
-        if(err)
-            goto error;
+    /* Create root directory */
+    char* rootDir = NULL;
+    size_t rootDirLen = 0;
+    UA_StatusCode retval = FileCertStore_createRootDirectory(storePath, certificateGroupId, &rootDir, &rootDirLen);
+    if (retval != UA_STATUSCODE_GOOD || rootDir == NULL) {
+        if (rootDir) UA_free(rootDir);
+        return retval;
     }
 
-    return UA_STATUSCODE_GOOD;
-error:
-    certificateGroup_clear(certGroup);
-    return UA_STATUSCODE_BADINTERNALERROR;
-}
+    /* Set PKi Store data */
+    memset(certGroup, 0, sizeof(UA_CertificateGroup));
+    certGroup->getTrustList = FileCertStore_getTrustList;
+    certGroup->setTrustList = FileCertStore_setTrustList;
 
-#ifdef __linux__ /* Linux only so far */
+    certGroup->addToTrustList = FileCertStore_addToTrustList;
+    certGroup->removeFromTrustList = FileCertStore_removeFromTrustList;
 
-#ifdef UA_ENABLE_CERT_REJECTED_DIR
-UA_StatusCode
-UA_CertificateVerification_CertFolders(UA_CertificateGroup *certGroup,
-                                       const char *trustListFolder,
-                                       const char *issuerListFolder,
-                                       const char *revocationListFolder,
-                                       const char *rejectedListFolder) {
-#else
-UA_StatusCode
-UA_CertificateVerification_CertFolders(UA_CertificateGroup *certGroup,
-                                       const char *trustListFolder,
-                                       const char *issuerListFolder,
-                                       const char *revocationListFolder) {
-#endif
-    if(certGroup == NULL) {
-        return UA_STATUSCODE_BADINTERNALERROR;
-    }
-    if(certGroup->logging == NULL) {
-        return UA_STATUSCODE_BADINTERNALERROR;
-    }
+    certGroup->getRejectedList = FileCertStore_getRejectedList;
 
-    /* Clear if the plugin is already initialized */
-    if(certGroup->clear)
+    certGroup->verifyCertificate = FileCertStore_verifyCertificate;
+
+    certGroup->clear = FileCertStore_clear;
+
+    /* Set PKI Store context data */
+    FileCertStore *context = (FileCertStore *)UA_malloc(sizeof(FileCertStore));
+    context->rootDir = rootDir;
+    context->rootDirLen = rootDirLen;
+    certGroup->context = context;
+
+    retval |= FileCertStore_setupStorePath("/trusted/certs", rootDir, rootDirLen, &context->trustedCertDir);
+    retval |= FileCertStore_setupStorePath("/trusted/crl", rootDir, rootDirLen, &context->trustedCrlDir);
+    retval |= FileCertStore_setupStorePath("/issuer/certs", rootDir, rootDirLen, &context->trustedIssuerCertDir);
+    retval |= FileCertStore_setupStorePath("/issuer/crl", rootDir, rootDirLen, &context->trustedIssuerCrlDir);
+    retval |= FileCertStore_setupStorePath("/rejected/certs", rootDir, rootDirLen, &context->rejectedCertDir);
+
+    if(retval != UA_STATUSCODE_GOOD) {
         certGroup->clear(certGroup);
-
-    CertInfo *ci = (CertInfo*)UA_malloc(sizeof(CertInfo));
-    if(!ci)
-        return UA_STATUSCODE_BADOUTOFMEMORY;
-    memset(ci, 0, sizeof(CertInfo));
-    mbedtls_x509_crt_init(&ci->certificateTrustList);
-    mbedtls_x509_crl_init(&ci->certificateRevocationList);
-    mbedtls_x509_crt_init(&ci->certificateIssuerList);
-
-    /* Only set the folder paths. They will be reloaded during runtime.
-     * TODO: Add a more efficient reloading of only the changes */
-    ci->trustListFolder = UA_STRING_ALLOC(trustListFolder);
-    ci->issuerListFolder = UA_STRING_ALLOC(issuerListFolder);
-    ci->revocationListFolder = UA_STRING_ALLOC(revocationListFolder);
-#ifdef UA_ENABLE_CERT_REJECTED_DIR
-    ci->rejectedListFolder = UA_STRING_ALLOC(rejectedListFolder);
-#endif
-
-    reloadCertificates(certGroup, ci);
-
-    certGroup->context = (void*)ci;
-    certGroup->verifyCertificate = certificateGroup_verify;
-    certGroup->clear = certificateGroup_clear;
-    certGroup->getTrustList = NULL;
-    certGroup->setTrustList = NULL;
-    certGroup->addToTrustList = NULL;
-    certGroup->removeFromTrustList = NULL;
-
+        return UA_STATUSCODE_BADINTERNALERROR;
+    }
     return UA_STATUSCODE_GOOD;
 }
-
-#endif
-
 
 UA_StatusCode
 UA_CertificateUtils_verifyApplicationURI(UA_RuleHandling ruleHandling,
@@ -734,6 +541,29 @@ UA_CertificateUtils_getSubjectName(UA_ByteString *certificate,
         return UA_STATUSCODE_BADINTERNALERROR;
     UA_String tmp = {(size_t)res, (UA_Byte*)buf};
     return UA_String_copy(&tmp, subjectName);
+}
+
+UA_StatusCode
+UA_CertificateUtils_getThumbprint(UA_ByteString *certificate,
+                                  UA_String *thumbprint){
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+    if(certificate == NULL || thumbprint->length != (UA_SHA1_LENGTH * 2))
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    UA_ByteString thumbpr = UA_BYTESTRING_NULL;
+    UA_ByteString_allocBuffer(&thumbpr, UA_SHA1_LENGTH);
+
+    retval = mbedtls_thumbprint_sha1(certificate, &thumbpr);
+
+    // Create a string containing a hex representation
+    char *p = (char*)thumbprint->data;
+    for (size_t i = 0; i < thumbpr.length; i++) {
+        p += sprintf(p, "%.2X", thumbpr.data[i]);
+    }
+
+    UA_ByteString_clear(&thumbpr);
+
+    return retval;
 }
 
 UA_StatusCode

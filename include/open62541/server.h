@@ -208,6 +208,9 @@ struct UA_ServerConfig {
     UA_Boolean allowNonePolicyPassword;
 
     /* Different sets of certificates are trusted for SecureChannel / Session */
+    size_t certificateGroupsSize;
+    UA_CertificateGroup *certificateGroups;
+
     UA_CertificateGroup secureChannelPKI;
     UA_CertificateGroup sessionPKI;
 

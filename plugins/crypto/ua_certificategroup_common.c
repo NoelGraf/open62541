@@ -7,11 +7,9 @@
  *    Copyright 2024 (c) Fraunhofer IOSB (Author: Noel Graf)
  */
 
-#include <open62541/nodeids.h>
 #include <open62541/util.h>
-#include <open62541/plugin/certificategroup.h>
-#include <open62541/plugin/certificategroup_default.h>
-#include <open62541/types_generated_handling.h>
+
+#include "ua_certificategroup_common.h"
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -134,47 +132,6 @@ mkpath(char *dir, mode_t mode) {
 
     return mkdir(dir, mode);
 }
-
-static UA_StatusCode
-setupPkiDir(char *directory, char *cwd, size_t cwdLen, char **out) {
-    char path[PATH_MAX];
-    size_t pathLen = 0;
-
-    strncpy(path, cwd, PATH_MAX);
-    pathLen = strnlen(path, PATH_MAX);
-
-    strncpy(&path[pathLen], directory, PATH_MAX - pathLen);
-    pathLen = strnlen(path, PATH_MAX);
-
-    *out = strndup(path, pathLen+1);
-    if(*out == NULL) {
-        return UA_STATUSCODE_BADINTERNALERROR;
-    }
-
-    mkpath(*out, 0777);
-    return UA_STATUSCODE_GOOD;
-}
-
-typedef struct FileCertStore FileCertStore;
-
-struct FileCertStore {
-    char *trustedCertDir;
-    size_t trustedCertDirLen;
-    char *trustedCrlDir;
-    size_t trustedCrlDirLen;
-    char *trustedIssuerCertDir;
-    size_t trustedIssuerCertDirLen;
-    char *trustedIssuerCrlDir;
-    size_t trustedIssuerCrlDirLen;
-    char *certificateDir;
-    size_t certificateDirLen;
-    char *rejectedCertDir;
-    size_t rejectedCertDirLen;
-    char *keyDir;
-    size_t keyDirLen;
-    char *rootDir;
-    size_t rootDirLen;
-};
 
 static UA_StatusCode
 getCertFileName(
@@ -352,7 +309,7 @@ newList(UA_CertificateGroup *certGroup, const UA_ByteString *list, size_t listSi
     return retval;
 }
 
-static UA_StatusCode
+UA_StatusCode
 FileCertStore_removeFromTrustList(UA_CertificateGroup *certGroup, const UA_TrustListDataType *trustList) {
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
 
@@ -491,7 +448,7 @@ FileCertStore_removeFromTrustList(UA_CertificateGroup *certGroup, const UA_Trust
     return retval;
 }
 
-static UA_StatusCode
+UA_StatusCode
 FileCertStore_getTrustList(UA_CertificateGroup *certGroup, UA_TrustListDataType *trustList) {
     /* Check parameter */
     if (certGroup == NULL || trustList == NULL) {
@@ -533,7 +490,7 @@ FileCertStore_getTrustList(UA_CertificateGroup *certGroup, UA_TrustListDataType 
 }
 
 
-static UA_StatusCode
+UA_StatusCode
 FileCertStore_setTrustList(UA_CertificateGroup *certGroup, const UA_TrustListDataType *trustList) {
     /* Check parameter */
     if (certGroup == NULL || trustList == NULL) {
@@ -574,7 +531,7 @@ FileCertStore_setTrustList(UA_CertificateGroup *certGroup, const UA_TrustListDat
     return retval;
 }
 
-static UA_StatusCode
+UA_StatusCode
 FileCertStore_addToTrustList(UA_CertificateGroup *certGroup, const UA_TrustListDataType *trustList) {
     /* Check parameter */
     if (certGroup == NULL || trustList == NULL) {
@@ -615,48 +572,7 @@ FileCertStore_addToTrustList(UA_CertificateGroup *certGroup, const UA_TrustListD
     return retval;
 }
 
-//static UA_StatusCode
-//FileCertStore_removeFromTrustList(UA_CertificateGroup *certGroup, const UA_TrustListDataType *trustList) {
-//    /* Check parameter */
-//    if (certGroup == NULL || trustList == NULL) {
-//        return UA_STATUSCODE_BADINTERNALERROR;
-//    }
-//
-//    FileCertStore *context = (FileCertStore *)certGroup->context;
-//    UA_StatusCode retval = UA_STATUSCODE_GOOD;
-//
-//    if(trustList->specifiedLists & UA_TRUSTLISTMASKS_TRUSTEDCERTIFICATES) {
-//        retval = removeFromList(certGroup, trustList->trustedCertificates, trustList->trustedCertificatesSize,
-//                           context->trustedCertDir);
-//        if(retval != UA_STATUSCODE_GOOD) {
-//            return retval;
-//        }
-//    }
-//    if(trustList->specifiedLists & UA_TRUSTLISTMASKS_TRUSTEDCRLS) {
-//        retval = removeFromList(certGroup, trustList->trustedCrls, trustList->trustedCrlsSize,
-//                           context->trustedCrlDir);
-//        if(retval != UA_STATUSCODE_GOOD) {
-//            return retval;
-//        }
-//    }
-//    if(trustList->specifiedLists & UA_TRUSTLISTMASKS_ISSUERCERTIFICATES) {
-//        retval = removeFromList(certGroup, trustList->issuerCertificates, trustList->issuerCertificatesSize,
-//                           context->trustedIssuerCertDir);
-//        if(retval != UA_STATUSCODE_GOOD) {
-//            return retval;
-//        }
-//    }
-//    if(trustList->specifiedLists & UA_TRUSTLISTMASKS_ISSUERCRLS) {
-//        retval = removeFromList(certGroup, trustList->issuerCrls, trustList->issuerCrlsSize,
-//                           context->trustedIssuerCrlDir);
-//        if(retval != UA_STATUSCODE_GOOD) {
-//            return retval;
-//        }
-//    }
-//    return retval;
-//}
-
-static UA_StatusCode
+UA_StatusCode
 FileCertStore_getRejectedList(UA_CertificateGroup *certGroup, UA_ByteString **rejectedList, size_t *rejectedListSize)
 {
     /* Check parameter */
@@ -669,7 +585,7 @@ FileCertStore_getRejectedList(UA_CertificateGroup *certGroup, UA_ByteString **re
     return loadList(rejectedList, rejectedListSize, context->rejectedCertDir);
 }
 
-static UA_StatusCode
+UA_StatusCode
 FileCertStore_addToRejectedList(UA_CertificateGroup *certGroup, const UA_ByteString *certificate){
     /* Check parameter */
     if(certGroup == NULL || certificate == NULL) {
@@ -707,7 +623,7 @@ FileCertStore_addToRejectedList(UA_CertificateGroup *certGroup, const UA_ByteStr
     return writeByteStringToFile(filename, certificate);
 }
 
-static void
+void
 FileCertStore_clear(UA_CertificateGroup *certGroup) {
     /* check parameter */
     if (certGroup == NULL) {
@@ -740,8 +656,8 @@ FileCertStore_clear(UA_CertificateGroup *certGroup) {
     }
 }
 
-static UA_StatusCode
-create_root_directory(UA_String directory,
+UA_StatusCode
+FileCertStore_createRootDirectory(UA_String *directory,
                       const UA_NodeId *certificateGroupId,
                       char** rootDir,
                       size_t* rootDirLen) {
@@ -751,11 +667,11 @@ create_root_directory(UA_String directory,
 
     /* Set base directory */
     memset(rootDirectory, 0x00, PATH_MAX);
-    if(directory.length > 0) {
-        if(directory.length >= PATH_MAX) {
+    if(directory != NULL) {
+        if(directory->length >= PATH_MAX) {
             return UA_STATUSCODE_BADINTERNALERROR;
         }
-        memcpy(rootDirectory, directory.data, directory.length);
+        memcpy(rootDirectory, directory->data, directory->length);
     }
     else {
         if(getcwd(rootDirectory, PATH_MAX) == NULL) {
@@ -801,56 +717,22 @@ create_root_directory(UA_String directory,
     return UA_STATUSCODE_GOOD;
 }
 
-
 UA_StatusCode
-UA_CertificateGroup_Filestore(UA_CertificateGroup *certGroup, UA_NodeId *certificateGroupId, UA_String pkiDir) {
-    /* Check parameter */
-    if(certGroup == NULL || certificateGroupId == NULL) {
+FileCertStore_setupStorePath(char *directory, char *cwd, size_t cwdLen, char **out) {
+    char path[PATH_MAX];
+    size_t pathLen = 0;
+
+    strncpy(path, cwd, PATH_MAX);
+    pathLen = strnlen(path, PATH_MAX);
+
+    strncpy(&path[pathLen], directory, PATH_MAX - pathLen);
+    pathLen = strnlen(path, PATH_MAX);
+
+    *out = strndup(path, pathLen+1);
+    if(*out == NULL) {
         return UA_STATUSCODE_BADINTERNALERROR;
     }
 
-    if(certGroup->clear)
-        certGroup->clear(certGroup);
-    memset(certGroup, 0, sizeof(UA_CertificateGroup));
-
-    UA_NodeId_copy(certificateGroupId, &certGroup->certificateGroupId);
-
-    /* Create root directory */
-    char* rootDir = NULL;
-    size_t rootDirLen = 0;
-    UA_StatusCode retval = create_root_directory(pkiDir, certificateGroupId, &rootDir, &rootDirLen);
-    if (retval != UA_STATUSCODE_GOOD || rootDir == NULL) {
-        if (rootDir) UA_free(rootDir);
-        return retval;
-    }
-
-    /* Set PKi Store data */
-    memset(certGroup, 0, sizeof(UA_CertificateGroup));
-    certGroup->getTrustList = FileCertStore_getTrustList;
-    certGroup->setTrustList = FileCertStore_setTrustList;
-
-    certGroup->addToTrustList = FileCertStore_addToTrustList;
-    certGroup->removeFromTrustList = FileCertStore_removeFromTrustList;
-
-    certGroup->getRejectedList = FileCertStore_getRejectedList;
-
-    certGroup->clear = FileCertStore_clear;
-
-    /* Set PKI Store context data */
-    FileCertStore *context = (FileCertStore *)UA_malloc(sizeof(FileCertStore));
-    context->rootDir = rootDir;
-    context->rootDirLen = rootDirLen;
-    certGroup->context = context;
-
-    retval |= setupPkiDir("/trusted/certs", rootDir, rootDirLen, &context->trustedCertDir);
-    retval |= setupPkiDir("/trusted/crl", rootDir, rootDirLen, &context->trustedCrlDir);
-    retval |= setupPkiDir("/issuer/certs", rootDir, rootDirLen, &context->trustedIssuerCertDir);
-    retval |= setupPkiDir("/issuer/crl", rootDir, rootDirLen, &context->trustedIssuerCrlDir);
-    retval |= setupPkiDir("/rejected/certs", rootDir, rootDirLen, &context->rejectedCertDir);
-
-    if(retval != UA_STATUSCODE_GOOD) {
-        certGroup->clear(certGroup);
-        return UA_STATUSCODE_BADINTERNALERROR;
-    }
+    mkpath(*out, 0777);
     return UA_STATUSCODE_GOOD;
 }

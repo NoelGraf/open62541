@@ -788,52 +788,9 @@ PARSE_JSON(SecurityPkiField) {
             break;
         }
     }
-#ifndef __linux__
     /* Currently not supported! */
     (void)field;
     return UA_STATUSCODE_GOOD;
-#else
-    /* set server config field */
-    char *sTrustListFolder = NULL;
-    char *sIssuerListFolder = NULL;
-    char *sRevocationListFolder = NULL;
-    if(trustListFolder.length > 0) {
-        sTrustListFolder = (char*)UA_malloc(trustListFolder.length+1);
-        memcpy(sTrustListFolder, trustListFolder.data, trustListFolder.length);
-        sTrustListFolder[trustListFolder.length] = '\0';
-    }
-    if(issuerListFolder.length > 0) {
-        sIssuerListFolder = (char*)UA_malloc(issuerListFolder.length+1);
-        memcpy(sIssuerListFolder, issuerListFolder.data, issuerListFolder.length);
-        sIssuerListFolder[issuerListFolder.length] = '\0';
-    }
-    if(revocationListFolder.length > 0) {
-        sRevocationListFolder = (char*)UA_malloc(revocationListFolder.length+1);
-        memcpy(sRevocationListFolder, revocationListFolder.data, revocationListFolder.length);
-        sRevocationListFolder[revocationListFolder.length] = '\0';
-    }
-    if(field && field->clear)
-        field->clear(field);
-#ifdef UA_ENABLE_CERT_REJECTED_DIR
-    UA_StatusCode retval = UA_CertificateVerification_CertFolders(field, sTrustListFolder,
-                                                                  sIssuerListFolder, sRevocationListFolder, NULL);
-#else
-    UA_StatusCode retval = UA_CertificateVerification_CertFolders(field, sTrustListFolder,
-                                                                  sIssuerListFolder, sRevocationListFolder);
-#endif
-    /* Clean up */
-    if(sTrustListFolder)
-        UA_free(sTrustListFolder);
-    if(sIssuerListFolder)
-        UA_free(sIssuerListFolder);
-    if(sRevocationListFolder)
-        UA_free(sRevocationListFolder);
-    UA_String_clear(&trustListFolder);
-    UA_String_clear(&issuerListFolder);
-    UA_String_clear(&revocationListFolder);
-
-    return retval;
-#endif
 #endif
     return UA_STATUSCODE_GOOD;
 }

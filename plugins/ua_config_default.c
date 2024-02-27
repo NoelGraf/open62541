@@ -442,10 +442,10 @@ setDefaultConfig(UA_ServerConfig *conf, UA_UInt16 portNumber) {
     if(!conf->sessionPKI.logging)
         conf->sessionPKI.logging = conf->logging;
 
-    /* Certificate Verification that accepts every certificate. Can be
+    /* Certificate Group that accepts every certificate. Can be
      * overwritten when the policy is specialized. */
-    UA_CertificateVerification_AcceptAll(&conf->secureChannelPKI);
-    UA_CertificateVerification_AcceptAll(&conf->sessionPKI);
+    UA_CertificateGroup_AcceptAll(&conf->secureChannelPKI);
+    UA_CertificateGroup_AcceptAll(&conf->sessionPKI);
 
     /* * Global Node Lifecycle * */
     /* conf->nodeLifecycle.constructor = NULL; */
@@ -986,19 +986,32 @@ UA_ServerConfig_setDefaultWithSecurityPolicies(UA_ServerConfig *conf,
         return retval;
     }
 
-    retval = UA_CertificateVerification_Trustlist(&conf->sessionPKI,
-                                                  trustList, trustListSize,
-                                                  issuerList, issuerListSize,
-                                                  revocationList, revocationListSize);
+    UA_NodeId *defaultApplicationGroup = UA_NodeId_new();
+    *defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    retval = UA_CertificateGroup_Filestore(&conf->secureChannelPKI, defaultApplicationGroup, NULL);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
-    retval = UA_CertificateVerification_Trustlist(&conf->secureChannelPKI,
-                                                  trustList, trustListSize,
-                                                  issuerList, issuerListSize,
-                                                  revocationList, revocationListSize);
+    UA_NodeId *defaultUserTokenGroup = UA_NodeId_new();
+    *defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP);
+    retval = UA_CertificateGroup_Filestore(&conf->sessionPKI, defaultUserTokenGroup, NULL);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
+
+    /* Add the specified list to the default application group */
+    UA_TrustListDataType trustListTmp;
+    memset(&trustListTmp, 0, sizeof(UA_TrustListDataType));
+
+    trustListTmp.specifiedLists = UA_TRUSTLISTMASKS_ALL;
+    trustListTmp.trustedCertificates = (UA_ByteString *)(uintptr_t)trustList;
+    trustListTmp.trustedCertificatesSize = trustListSize;
+    trustListTmp.issuerCertificates = (UA_ByteString *)(uintptr_t)issuerList;
+    trustListTmp.issuerCertificatesSize = issuerListSize;
+    trustListTmp.trustedCrls = (UA_ByteString *)(uintptr_t)revocationList;
+    trustListTmp.trustedCrlsSize = revocationListSize;
+
+    conf->secureChannelPKI.setTrustList(&conf->secureChannelPKI, &trustListTmp);
+    conf->sessionPKI.setTrustList(&conf->sessionPKI, &trustListTmp);
 
     retval = UA_ServerConfig_addAllSecurityPolicies(conf, certificate, privateKey);
 
@@ -1036,19 +1049,32 @@ UA_ServerConfig_setDefaultWithSecureSecurityPolicies(UA_ServerConfig *conf,
         return retval;
     }
 
-    retval = UA_CertificateVerification_Trustlist(&conf->sessionPKI,
-                                                  trustList, trustListSize,
-                                                  issuerList, issuerListSize,
-                                                  revocationList, revocationListSize);
+    UA_NodeId *defaultApplicationGroup = UA_NodeId_new();
+    *defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    retval = UA_CertificateGroup_Filestore(&conf->secureChannelPKI, defaultApplicationGroup, NULL);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
-    retval = UA_CertificateVerification_Trustlist(&conf->secureChannelPKI,
-                                                  trustList, trustListSize,
-                                                  issuerList, issuerListSize,
-                                                  revocationList, revocationListSize);
+    UA_NodeId *defaultUserTokenGroup = UA_NodeId_new();
+    *defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP);
+    retval = UA_CertificateGroup_Filestore(&conf->sessionPKI, defaultUserTokenGroup, NULL);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
+
+    /* Add the specified list to the default application group */
+    UA_TrustListDataType trustListTmp;
+    memset(&trustListTmp, 0, sizeof(UA_TrustListDataType));
+
+    trustListTmp.specifiedLists = UA_TRUSTLISTMASKS_ALL;
+    trustListTmp.trustedCertificates = (UA_ByteString *)(uintptr_t)trustList;
+    trustListTmp.trustedCertificatesSize = trustListSize;
+    trustListTmp.issuerCertificates = (UA_ByteString *)(uintptr_t)issuerList;
+    trustListTmp.issuerCertificatesSize = issuerListSize;
+    trustListTmp.trustedCrls = (UA_ByteString *)(uintptr_t)revocationList;
+    trustListTmp.trustedCrlsSize = revocationListSize;
+
+    conf->secureChannelPKI.setTrustList(&conf->secureChannelPKI, &trustListTmp);
+    conf->sessionPKI.setTrustList(&conf->sessionPKI, &trustListTmp);
 
     retval = UA_ServerConfig_addAllSecureSecurityPolicies(conf, certificate, privateKey);
 
@@ -1138,7 +1164,7 @@ UA_ClientConfig_setDefault(UA_ClientConfig *config) {
     if(!config->certificateVerification.verifyCertificate) {
         /* Certificate Verification that accepts every certificate. Can be
          * overwritten when the policy is specialized. */
-        UA_CertificateVerification_AcceptAll(&config->certificateVerification);
+        UA_CertificateGroup_AcceptAll(&config->certificateVerification);
     }
 
     /* With encryption enabled, the applicationUri needs to match the URI from
@@ -1184,12 +1210,23 @@ UA_ClientConfig_setDefaultEncryption(UA_ClientConfig *config,
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
-    retval = UA_CertificateVerification_Trustlist(&config->certificateVerification,
-                                                  trustList, trustListSize,
-                                                  NULL, 0,
-                                                  revocationList, revocationListSize);
+    UA_NodeId *defaultApplicationGroup = UA_NodeId_new();
+    *defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    retval = UA_CertificateGroup_Filestore(&config->certificateVerification, defaultApplicationGroup, NULL);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
+
+    /* Add the specified list to the default application group */
+    UA_TrustListDataType trustListTmp;
+    memset(&trustListTmp, 0, sizeof(UA_TrustListDataType));
+
+    trustListTmp.specifiedLists = UA_TRUSTLISTMASKS_ALL;
+    trustListTmp.trustedCertificates = (UA_ByteString *)(uintptr_t)trustList;
+    trustListTmp.trustedCertificatesSize = trustListSize;
+    trustListTmp.trustedCrls = (UA_ByteString *)(uintptr_t)revocationList;
+    trustListTmp.trustedCrlsSize = revocationListSize;
+
+    config->certificateVerification.setTrustList(&config->certificateVerification, &trustListTmp);
 
     /* Populate SecurityPolicies */
     UA_SecurityPolicy *sp = (UA_SecurityPolicy*)

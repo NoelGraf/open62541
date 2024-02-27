@@ -36,7 +36,8 @@ struct UA_CertificateGroup {
 
     UA_StatusCode (*getRejectedList)(UA_CertificateGroup *certGroup, UA_ByteString **rejectedList, size_t *rejectedListSize);
 
-    UA_StatusCode (*verifyCertificate)(UA_CertificateGroup *certGroup, const UA_ByteString *certificate);
+    UA_StatusCode (*verifyCertificate)(UA_CertificateGroup *certGroup, const UA_ByteString *certificate,
+                                       const UA_ByteString *issuerCertificates, size_t issuerCertificatesSize);
 
     void (*clear)(UA_CertificateGroup *certGroup);
 };

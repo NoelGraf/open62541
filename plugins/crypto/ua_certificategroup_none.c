@@ -9,7 +9,9 @@
 
 static UA_StatusCode
 verifyCertificateAllowAll(UA_CertificateGroup *certGroup,
-                          const UA_ByteString *certificate) {
+                          const UA_ByteString *certificate,
+                          const UA_ByteString *issuerCertificates,
+                          size_t issuerCertificatesSize) {
     UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_USERLAND,
                    "No certificate store configured. Accepting the certificate.");
     return UA_STATUSCODE_GOOD;
@@ -20,7 +22,7 @@ clearVerifyAllowAll(UA_CertificateGroup *certGroup) {
 
 }
 
-void UA_CertificateVerification_AcceptAll(UA_CertificateGroup *certGroup) {
+void UA_CertificateGroup_AcceptAll(UA_CertificateGroup *certGroup) {
     /* Clear the structure, as it may have already been initialized. */
     if(certGroup->clear)
         certGroup->clear(certGroup);

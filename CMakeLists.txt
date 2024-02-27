@@ -951,11 +951,12 @@ endif()
 
 # Plugins
 set(plugin_headers ${PROJECT_SOURCE_DIR}/plugins/include/open62541/plugin/accesscontrol_default.h
-    ${PROJECT_SOURCE_DIR}/plugins/include/open62541/plugin/certificategroup_default.h
+                   ${PROJECT_SOURCE_DIR}/plugins/include/open62541/plugin/certificategroup_default.h
                    ${PROJECT_SOURCE_DIR}/plugins/include/open62541/plugin/log_stdout.h
                    ${PROJECT_SOURCE_DIR}/plugins/include/open62541/plugin/nodestore_default.h
                    ${PROJECT_SOURCE_DIR}/plugins/include/open62541/server_config_default.h
                    ${PROJECT_SOURCE_DIR}/plugins/include/open62541/client_config_default.h
+                   ${PROJECT_SOURCE_DIR}/plugins/crypto/ua_certificategroup_common.h
                    ${PROJECT_SOURCE_DIR}/plugins/include/open62541/plugin/securitypolicy_default.h)
 
 set(plugin_sources ${PROJECT_SOURCE_DIR}/plugins/ua_log_stdout.c
@@ -963,7 +964,8 @@ set(plugin_sources ${PROJECT_SOURCE_DIR}/plugins/ua_log_stdout.c
                    ${PROJECT_SOURCE_DIR}/plugins/ua_nodestore_ziptree.c
                    ${PROJECT_SOURCE_DIR}/plugins/ua_nodestore_hashmap.c
                    ${PROJECT_SOURCE_DIR}/plugins/ua_config_default.c
-    ${PROJECT_SOURCE_DIR}/plugins/crypto/ua_certificategroup_none.c
+                   ${PROJECT_SOURCE_DIR}/plugins/crypto/ua_certificategroup_none.c
+                   ${PROJECT_SOURCE_DIR}/plugins/crypto/ua_certificategroup_common.c
                    ${PROJECT_SOURCE_DIR}/plugins/crypto/ua_securitypolicy_none.c)
 
 # Always add the POSIX eventloop. The files internally check for the configured architecture
