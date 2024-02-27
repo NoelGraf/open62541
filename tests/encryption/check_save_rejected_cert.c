@@ -376,17 +376,11 @@ static void setup(void) {
     size_t revocationListSize = 0;
 
     UA_StatusCode res =
-        UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4840,
-                                                       &certificate, &privateKey,
-                                                       trustList, trustListSize,
-                                                       issuerList, issuerListSize,
-                                                       revocationList, revocationListSize);
-        ck_assert_uint_eq(res, UA_STATUSCODE_GOOD);
-#else /* On Linux we can monitor the certs folder and reload when changes are made */
-    UA_StatusCode res =
-        UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4840,
-                                                       &certificate, &privateKey,
-                                                       NULL, 0, NULL, 0, NULL, 0);
+            UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4840,
+                                                           &certificate, &privateKey,
+                                                           trustList, trustListSize,
+                                                           issuerList, issuerListSize,
+                                                           revocationList, revocationListSize);
     ck_assert_uint_eq(res, UA_STATUSCODE_GOOD);
 
     /* Set the ApplicationUri used in the certificate */

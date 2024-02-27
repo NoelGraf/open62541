@@ -158,7 +158,6 @@ getCertFileName(
     }
 
     /* Convert bytes to hex string */
-    idx = 0;
     char thumbprintBuf[41];
     memset(thumbprintBuf, 0x00, 41);
     for(idx = 0; idx < 20; idx++) {

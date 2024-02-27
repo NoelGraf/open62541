@@ -243,18 +243,12 @@ main(int argc, char **argv) {
     UA_Boolean enableUnencr = false;
     UA_Boolean enableSec = false;
 
-#ifndef __linux__
     UA_ByteString trustList[100];
     size_t trustListSize = 0;
     UA_ByteString issuerList[100];
     size_t issuerListSize = 0;
     UA_ByteString revocationList[100];
     size_t revocationListSize = 0;
-#else
-    const char *trustlistFolder = NULL;
-    const char *issuerlistFolder = NULL;
-    const char *revocationlistFolder = NULL;
-#endif /* __linux__ */
 
 #endif /* UA_ENABLE_ENCRYPTION */
 
@@ -298,7 +292,6 @@ main(int argc, char **argv) {
             continue;
         }
 
-#ifndef __linux__
         if(strcmp(argv[pos], "--trustlist") == 0) {
             filetype = 't';
             continue;
@@ -361,37 +354,6 @@ main(int argc, char **argv) {
             revocationListSize++;
             continue;
         }
-#else  /* __linux__ */
-        if(strcmp(argv[pos], "--trustlistFolder") == 0) {
-            filetype = 't';
-            continue;
-        }
-
-        if(strcmp(argv[pos], "--issuerlistFolder") == 0) {
-            filetype = 'l';
-            continue;
-        }
-
-        if(strcmp(argv[pos], "--revocationlistFolder") == 0) {
-            filetype = 'r';
-            continue;
-        }
-
-        if(filetype == 't') {
-            trustlistFolder = argv[pos];
-            continue;
-        }
-
-        if(filetype == 'l') {
-            issuerlistFolder = argv[pos];
-            continue;
-        }
-
-        if(filetype == 'r') {
-            revocationlistFolder = argv[pos];
-            continue;
-        }
-#endif /* __linux__ */
 
 #endif /* UA_ENABLE_ENCRYPTION */
 
