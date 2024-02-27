@@ -8,6 +8,7 @@
  */
 
 #include <open62541/util.h>
+#include <open62541/types_generated_handling.h>
 
 #include "ua_certificategroup_common.h"
 
@@ -340,8 +341,11 @@ FileCertStore_removeFromTrustList(UA_CertificateGroup *certGroup, const UA_Trust
                 UA_Array_delete(list, size, &UA_TYPES[UA_TYPES_BYTESTRING]);
                 list = NULL;
             } else {
-                UA_Array_resize((void**)&list, &size, listSize,
-                                &UA_TYPES[UA_TYPES_BYTESTRING]);
+                retval = UA_Array_resize((void**)&list, &size, listSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+                if (retval != UA_STATUSCODE_GOOD) {
+                    UA_free(list);
+                    return retval;
+                }
             }
         }
         UA_Array_delete(groupTrustList.trustedCertificates, groupTrustList.trustedCertificatesSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
@@ -371,8 +375,11 @@ FileCertStore_removeFromTrustList(UA_CertificateGroup *certGroup, const UA_Trust
                 UA_Array_delete(list, size, &UA_TYPES[UA_TYPES_BYTESTRING]);
                 list = NULL;
             } else {
-                UA_Array_resize((void**)&list, &size, listSize,
-                                &UA_TYPES[UA_TYPES_BYTESTRING]);
+                retval = UA_Array_resize((void**)&list, &size, listSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+                if (retval != UA_STATUSCODE_GOOD) {
+                    UA_free(list);
+                    return retval;
+                }
             }
         }
         UA_Array_delete(groupTrustList.issuerCertificates, groupTrustList.issuerCertificatesSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
@@ -402,8 +409,11 @@ FileCertStore_removeFromTrustList(UA_CertificateGroup *certGroup, const UA_Trust
                 UA_Array_delete(list, size, &UA_TYPES[UA_TYPES_BYTESTRING]);
                 list = NULL;
             } else {
-                UA_Array_resize((void**)&list, &size, listSize,
-                                &UA_TYPES[UA_TYPES_BYTESTRING]);
+                retval = UA_Array_resize((void**)&list, &size, listSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+                if (retval != UA_STATUSCODE_GOOD) {
+                    UA_free(list);
+                    return retval;
+                }
             }
         }
         UA_Array_delete(groupTrustList.trustedCrls, groupTrustList.trustedCrlsSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
@@ -433,8 +443,11 @@ FileCertStore_removeFromTrustList(UA_CertificateGroup *certGroup, const UA_Trust
                 UA_Array_delete(list, size, &UA_TYPES[UA_TYPES_BYTESTRING]);
                 list = NULL;
             } else {
-                UA_Array_resize((void**)&list, &size, listSize,
-                                &UA_TYPES[UA_TYPES_BYTESTRING]);
+                retval = UA_Array_resize((void**)&list, &size, listSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+                if (retval != UA_STATUSCODE_GOOD) {
+                    UA_free(list);
+                    return retval;
+                }
             }
         }
         UA_Array_delete(groupTrustList.issuerCrls, groupTrustList.issuerCrlsSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
