@@ -254,7 +254,7 @@ activateSession_default(UA_Server *server, UA_AccessControl *ac,
             return UA_STATUSCODE_BADIDENTITYTOKENINVALID;
 
         UA_StatusCode res = config->sessionPKI.
-            verifyCertificate(&config->sessionPKI, &userToken->certificateData);
+            verifyCertificate(&config->sessionPKI, &userToken->certificateData, NULL, 0);
         if(res != UA_STATUSCODE_GOOD)
             return UA_STATUSCODE_BADIDENTITYTOKENREJECTED;
     } else {
