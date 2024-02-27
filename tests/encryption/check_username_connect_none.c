@@ -50,7 +50,7 @@ static void setup(void) {
     UA_ServerConfig_setDefaultWithSecurityPolicies(config, 4840, &certificate, &privateKey,
                                                    NULL, 0, NULL, 0, NULL, 0);
 
-    UA_CertificateVerification_AcceptAll(&config->secureChannelPKI);
+    UA_CertificateGroup_AcceptAll(&config->secureChannelPKI);
     UA_AccessControl_default(config, false, NULL, usernamePasswordsSize, usernamePasswords);
 
     UA_String_clear(&config->applicationDescription.applicationUri);

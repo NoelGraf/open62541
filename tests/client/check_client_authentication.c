@@ -70,7 +70,7 @@ static void setup(void) {
                                                    issuerList, issuerListSize,
                                                    revocationList, revocationListSize);
 
-    UA_CertificateVerification_AcceptAll(&config->secureChannelPKI);
+    UA_CertificateGroup_AcceptAll(&config->secureChannelPKI);
 
     UA_Server_run_startup(server);
     THREAD_CREATE(server_thread, serverloop);
@@ -111,7 +111,7 @@ START_TEST(Client_connect_certificate) {
 
     UA_ClientConfig_setDefaultEncryption(cc, certificate, privateKey,
                                          NULL, 0, NULL, 0);
-    UA_CertificateVerification_AcceptAll(&cc->certificateVerification);
+    UA_CertificateGroup_AcceptAll(&cc->certificateVerification);
 
     /* Set the ApplicationUri used in the certificate */
     UA_String_clear(&cc->clientDescription.applicationUri);
@@ -155,7 +155,7 @@ START_TEST(Client_connect_invalid_certificate) {
 
         UA_ClientConfig_setDefaultEncryption(cc, certificate, privateKey,
                                              NULL, 0, NULL, 0);
-        UA_CertificateVerification_AcceptAll(&cc->certificateVerification);
+    UA_CertificateGroup_AcceptAll(&cc->certificateVerification);
 
         /* Set the ApplicationUri used in the certificate */
         UA_String_clear(&cc->clientDescription.applicationUri);

@@ -363,7 +363,6 @@ static void setup(void) {
     ck_assert(server != NULL);
     UA_ServerConfig *config = UA_Server_getConfig(server);
 
-#ifndef __linux__
     /* Load the trustlist */
     size_t trustListSize = 0;
     UA_ByteString *trustList = NULL;
@@ -389,13 +388,6 @@ static void setup(void) {
                                                        &certificate, &privateKey,
                                                        NULL, 0, NULL, 0, NULL, 0);
     ck_assert_uint_eq(res, UA_STATUSCODE_GOOD);
-
-    res |= UA_CertificateVerification_CertFolders(&config->secureChannelPKI,
-                                                  NULL, NULL, NULL, ".");
-    res |= UA_CertificateVerification_CertFolders(&config->sessionPKI,
-                                                  NULL, NULL, NULL, ".");
-    ck_assert_uint_eq(res, UA_STATUSCODE_GOOD);
-#endif /* __linux__ */
 
     /* Set the ApplicationUri used in the certificate */
     UA_String_clear(&config->applicationDescription.applicationUri);

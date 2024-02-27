@@ -402,35 +402,11 @@ main(int argc, char **argv) {
     UA_Server *server = NULL;
 
 #ifdef UA_ENABLE_ENCRYPTION
-#ifndef __linux__
     UA_StatusCode res = UA_ServerConfig_setDefaultWithSecurityPolicies(
         &config, port, &certificate, &privateKey, trustList, trustListSize, issuerList,
         issuerListSize, revocationList, revocationListSize);
     if(res != UA_STATUSCODE_GOOD)
         goto cleanup;
-#else /* On Linux we can monitor the certs folder and reload when changes are made */
-    UA_StatusCode res = UA_ServerConfig_setDefaultWithSecurityPolicies(
-        &config, port, &certificate, &privateKey, NULL, 0, NULL, 0, NULL, 0);
-    if(res != UA_STATUSCODE_GOOD)
-        goto cleanup;
-#ifdef UA_ENABLE_CERT_REJECTED_DIR
-    res |= UA_CertificateVerification_CertFolders(&config.secureChannelPKI,
-                                                  trustlistFolder, issuerlistFolder,
-                                                  revocationlistFolder, NULL);
-    res |= UA_CertificateVerification_CertFolders(&config.sessionPKI,
-                                                 trustlistFolder, issuerlistFolder,
-                                                 revocationlistFolder, NULL);
-#else
-    res |= UA_CertificateVerification_CertFolders(&config.secureChannelPKI,
-                                                  trustlistFolder, issuerlistFolder,
-                                                  revocationlistFolder);
-    res |= UA_CertificateVerification_CertFolders(&config.sessionPKI,
-                                                  trustlistFolder, issuerlistFolder,
-                                                  revocationlistFolder);
-#endif
-    if(res != UA_STATUSCODE_GOOD)
-        goto cleanup;
-#endif /* __linux__ */
 
     if(!enableUnencr)
         disableUnencrypted(&config);

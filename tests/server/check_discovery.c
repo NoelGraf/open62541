@@ -68,8 +68,8 @@ configure_lds_server(UA_Server *pServer) {
                                                    &certificate, &privateKey,
                                                    NULL, 0, NULL, 0, NULL, 0);
 
-    UA_CertificateVerification_AcceptAll(&config_lds->secureChannelPKI);
-    UA_CertificateVerification_AcceptAll(&config_lds->sessionPKI);
+    UA_CertificateGroup_AcceptAll(&config_lds->secureChannelPKI);
+    UA_CertificateGroup_AcceptAll(&config_lds->sessionPKI);
 
     config_lds->applicationDescription.applicationType =
         UA_APPLICATIONTYPE_DISCOVERYSERVER;
@@ -151,8 +151,8 @@ setup_register(void) {
                                                    &certificate, &privateKey,
                                                    NULL, 0, NULL, 0, NULL, 0);
 
-    UA_CertificateVerification_AcceptAll(&config_register->secureChannelPKI);
-    UA_CertificateVerification_AcceptAll(&config_register->sessionPKI);
+    UA_CertificateGroup_AcceptAll(&config_register->secureChannelPKI);
+    UA_CertificateGroup_AcceptAll(&config_register->sessionPKI);
 
     UA_String_clear(&config_register->applicationDescription.applicationUri);
     config_register->applicationDescription.applicationUri =
@@ -191,7 +191,7 @@ registerServer(void) {
     UA_ClientConfig cc;
     memset(&cc, 0, sizeof(UA_ClientConfig));
     UA_ClientConfig_setDefaultEncryption(&cc, certificate, privateKey, NULL, 0, NULL, 0);
-    UA_CertificateVerification_AcceptAll(&cc.certificateVerification);
+    UA_CertificateGroup_AcceptAll(&cc.certificateVerification);
     cc.eventLoop->dateTime_now = UA_DateTime_now_fake;
     cc.eventLoop->dateTime_nowMonotonic = UA_DateTime_now_fake;
 
@@ -222,7 +222,7 @@ unregisterServer(void) {
     UA_ClientConfig cc;
     memset(&cc, 0, sizeof(UA_ClientConfig));
     UA_ClientConfig_setDefaultEncryption(&cc, certificate, privateKey, NULL, 0, NULL, 0);
-    UA_CertificateVerification_AcceptAll(&cc.certificateVerification);
+    UA_CertificateGroup_AcceptAll(&cc.certificateVerification);
     cc.eventLoop->dateTime_now = UA_DateTime_now_fake;
     cc.eventLoop->dateTime_nowMonotonic = UA_DateTime_now_fake;
 
@@ -267,7 +267,7 @@ Server_register_semaphore(void) {
     UA_ClientConfig cc;
     memset(&cc, 0, sizeof(UA_ClientConfig));
     UA_ClientConfig_setDefaultEncryption(&cc, certificate, privateKey, NULL, 0, NULL, 0);
-    UA_CertificateVerification_AcceptAll(&cc.certificateVerification);
+    UA_CertificateGroup_AcceptAll(&cc.certificateVerification);
     cc.eventLoop->dateTime_now = UA_DateTime_now_fake;
     cc.eventLoop->dateTime_nowMonotonic = UA_DateTime_now_fake;
 

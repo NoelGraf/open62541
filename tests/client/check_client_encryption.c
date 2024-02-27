@@ -64,8 +64,8 @@ static void setup(void) {
                                                    issuerList, issuerListSize,
                                                    revocationList, revocationListSize);
 
-    UA_CertificateVerification_AcceptAll(&config->secureChannelPKI);
-    UA_CertificateVerification_AcceptAll(&config->sessionPKI);
+    UA_CertificateGroup_AcceptAll(&config->secureChannelPKI);
+    UA_CertificateGroup_AcceptAll(&config->sessionPKI);
 
     /* Set the ApplicationUri used in the certificate */
     UA_String_clear(&config->applicationDescription.applicationUri);
@@ -109,7 +109,7 @@ START_TEST(encryption_reconnect_session) {
                                          trustList, trustListSize,
                                          revocationList, revocationListSize);
     cc->certificateVerification.clear(&cc->certificateVerification);
-    UA_CertificateVerification_AcceptAll(&cc->certificateVerification);
+    UA_CertificateGroup_AcceptAll(&cc->certificateVerification);
     cc->securityPolicyUri =
         UA_STRING_ALLOC("http://opcfoundation.org/UA/SecurityPolicy#Basic256Sha256");
     ck_assert(client != NULL);
