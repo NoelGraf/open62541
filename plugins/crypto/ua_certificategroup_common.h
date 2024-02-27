@@ -24,12 +24,8 @@ struct FileCertStore {
     size_t trustedIssuerCertDirLen;
     char *trustedIssuerCrlDir;
     size_t trustedIssuerCrlDirLen;
-    char *certificateDir;
-    size_t certificateDirLen;
     char *rejectedCertDir;
     size_t rejectedCertDirLen;
-    char *keyDir;
-    size_t keyDirLen;
     char *rootDir;
     size_t rootDirLen;
 };

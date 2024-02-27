@@ -642,12 +642,8 @@ FileCertStore_clear(UA_CertificateGroup *certGroup) {
             UA_free(context->trustedIssuerCertDir);
         if(context->trustedIssuerCrlDir)
             UA_free(context->trustedIssuerCrlDir);
-        if(context->certificateDir)
-            UA_free(context->certificateDir);
         if(context->rejectedCertDir)
             UA_free(context->rejectedCertDir);
-        if(context->keyDir)
-            UA_free(context->keyDir);
         if (context->rootDir) {
             UA_free(context->rootDir);
         }

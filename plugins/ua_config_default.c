@@ -986,15 +986,15 @@ UA_ServerConfig_setDefaultWithSecurityPolicies(UA_ServerConfig *conf,
         return retval;
     }
 
-    UA_NodeId *defaultApplicationGroup = UA_NodeId_new();
-    *defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
-    retval = UA_CertificateGroup_Filestore(&conf->secureChannelPKI, defaultApplicationGroup, NULL);
+    UA_NodeId defaultApplicationGroup =
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    retval = UA_CertificateGroup_Filestore(&conf->secureChannelPKI, &defaultApplicationGroup, NULL);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
-    UA_NodeId *defaultUserTokenGroup = UA_NodeId_new();
-    *defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP);
-    retval = UA_CertificateGroup_Filestore(&conf->sessionPKI, defaultUserTokenGroup, NULL);
+    UA_NodeId defaultUserTokenGroup =
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP);
+    retval = UA_CertificateGroup_Filestore(&conf->sessionPKI, &defaultUserTokenGroup, NULL);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
@@ -1049,15 +1049,15 @@ UA_ServerConfig_setDefaultWithSecureSecurityPolicies(UA_ServerConfig *conf,
         return retval;
     }
 
-    UA_NodeId *defaultApplicationGroup = UA_NodeId_new();
-    *defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
-    retval = UA_CertificateGroup_Filestore(&conf->secureChannelPKI, defaultApplicationGroup, NULL);
+    UA_NodeId defaultApplicationGroup =
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    retval = UA_CertificateGroup_Filestore(&conf->secureChannelPKI, &defaultApplicationGroup, NULL);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
-    UA_NodeId *defaultUserTokenGroup = UA_NodeId_new();
-    *defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP);
-    retval = UA_CertificateGroup_Filestore(&conf->sessionPKI, defaultUserTokenGroup, NULL);
+    UA_NodeId defaultUserTokenGroup =
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP);
+    retval = UA_CertificateGroup_Filestore(&conf->sessionPKI, &defaultUserTokenGroup, NULL);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
@@ -1210,9 +1210,9 @@ UA_ClientConfig_setDefaultEncryption(UA_ClientConfig *config,
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
-    UA_NodeId *defaultApplicationGroup = UA_NodeId_new();
-    *defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
-    retval = UA_CertificateGroup_Filestore(&config->certificateVerification, defaultApplicationGroup, NULL);
+    UA_NodeId defaultApplicationGroup =
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    retval = UA_CertificateGroup_Filestore(&config->certificateVerification, &defaultApplicationGroup, NULL);
     if(retval != UA_STATUSCODE_GOOD)
         return retval;
 
