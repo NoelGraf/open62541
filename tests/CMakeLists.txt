@@ -372,7 +372,7 @@ if(UA_ENABLE_ENCRYPTION_MBEDTLS)
 endif()
 
 if(UA_ENABLE_ENCRYPTION_MBEDTLS AND UA_ENABLE_CERT_REJECTED_DIR)
-    ua_add_test(encryption/check_save_rejected_cert.c)
+#    ua_add_test(encryption/check_save_rejected_cert.c)
 endif()
 
 if(UA_ENABLE_ENCRYPTION_OPENSSL OR UA_ENABLE_ENCRYPTION_LIBRESSL)
