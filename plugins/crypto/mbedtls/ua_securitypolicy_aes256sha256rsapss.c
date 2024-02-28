@@ -700,19 +700,18 @@ updateCertificateAndPrivateKey_sp_aes256sha256rsapss(UA_SecurityPolicy *security
     securityPolicy->localCertificate.data[newCertificate.length] = '\0';
     securityPolicy->localCertificate.length--;
 
-    /* Set the new private key */
-    mbedtls_pk_free(&pc->localPrivateKey);
-    mbedtls_pk_init(&pc->localPrivateKey);
-#if MBEDTLS_VERSION_NUMBER >= 0x02060000 && MBEDTLS_VERSION_NUMBER < 0x03000000
-    int mbedErr = mbedtls_pk_parse_key(&pc->localPrivateKey, newPrivateKey.data,
-                                       newPrivateKey.length, NULL, 0);
-#else
-    int mbedErr = mbedtls_pk_parse_key(&pc->localPrivateKey, newPrivateKey.data,
-                                       newPrivateKey.length, NULL, 0, mbedtls_entropy_func, &pc->drbgContext);
-#endif
-    if(mbedErr) {
-        retval = UA_STATUSCODE_BADSECURITYCHECKSFAILED;
-        goto error;
+    if(newPrivateKey.length > 0) {
+        /* Set the new private key */
+        mbedtls_pk_free(&pc->localPrivateKey);
+        mbedtls_pk_init(&pc->localPrivateKey);
+        int mbedErr = UA_mbedTLS_LoadPrivateKey(&newPrivateKey, &pc->localPrivateKey, &pc->entropyContext);
+        if(mbedErr) {
+            retval = UA_STATUSCODE_BADSECURITYCHECKSFAILED;
+            goto error;
+        }
+    } else {
+        /* TODO: Check if the public key match the existing private key */
+        //mbedtls_pk_check_pair();
     }
 
     retval = asym_makeThumbprint_sp_aes256sha256rsapss(securityPolicy,
@@ -818,6 +817,8 @@ UA_SecurityPolicy_Aes256Sha256RsaPss(UA_SecurityPolicy *policy, const UA_ByteStr
     policy->logger = logger;
 
     policy->policyUri = UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#Aes256_Sha256_RsaPss");
+    policy->certificateGroupId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    policy->certificateTypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_RSASHA256APPLICATIONCERTIFICATETYPE);
     policy->securityLevel = 20;
 
     UA_SecurityPolicyAsymmetricModule *const asymmetricModule = &policy->asymmetricModule;

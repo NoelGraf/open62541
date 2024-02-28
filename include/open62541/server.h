@@ -1814,11 +1814,13 @@ UA_Server_setExpirationDate(UA_Server *server, const UA_NodeId conditionId,
 
 UA_StatusCode UA_EXPORT
 UA_Server_updateCertificate(UA_Server *server,
-                            const UA_ByteString *oldCertificate,
-                            const UA_ByteString *newCertificate,
-                            const UA_ByteString *newPrivateKey,
-                            UA_Boolean closeSessions,
-                            UA_Boolean closeSecureChannels);
+                            const UA_NodeId *certificateGroupId,
+                            const UA_NodeId *certificateTypeId,
+                            const UA_ByteString *certificate,
+                            const UA_ByteString *issuerCertificates,
+                            const size_t issuerCertificatesSize,
+                            const UA_ByteString *privateKey,
+                            const UA_String *privateKeyFormat);
 
 /**
  * Utility Functions

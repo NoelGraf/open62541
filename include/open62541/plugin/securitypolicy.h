@@ -305,6 +305,9 @@ struct UA_SecurityPolicy {
      * depends on the used key length. */
     UA_ByteString localCertificate;
 
+    UA_NodeId certificateGroupId;
+    UA_NodeId certificateTypeId;
+
     /* Function pointers grouped into modules */
     UA_SecurityPolicyAsymmetricModule asymmetricModule;
     UA_SecurityPolicySymmetricModule symmetricModule;

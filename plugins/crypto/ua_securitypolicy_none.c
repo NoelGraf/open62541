@@ -129,6 +129,8 @@ UA_SecurityPolicy_None(UA_SecurityPolicy *policy, const UA_ByteString localCerti
                        const UA_Logger *logger) {
     policy->policyContext = (void *)(uintptr_t)logger;
     policy->policyUri = UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#None");
+    policy->certificateGroupId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    policy->certificateTypeId = UA_NODEID_NUMERIC(0, 0);
     policy->securityLevel = 0;
     policy->logger = logger;
 

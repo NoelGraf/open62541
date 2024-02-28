@@ -541,61 +541,65 @@ notifySecureChannelsStopped(UA_Server *server, struct UA_ServerComponent *sc,
        server->state == UA_LIFECYCLESTATE_STARTED) {
         sc->notifyState = NULL; /* remove the callback */
         sc->start(server, sc);
+        UA_UNLOCK(&server->serviceMutex);
     }
 }
 
-UA_StatusCode
+UA_StatusCode UA_EXPORT
 UA_Server_updateCertificate(UA_Server *server,
-                            const UA_ByteString *oldCertificate,
-                            const UA_ByteString *newCertificate,
-                            const UA_ByteString *newPrivateKey,
-                            UA_Boolean closeSessions,
-                            UA_Boolean closeSecureChannels) {
-    UA_CHECK(server && oldCertificate && newCertificate && newPrivateKey,
+                            const UA_NodeId *certificateGroupId,
+                            const UA_NodeId *certificateTypeId,
+                            const UA_ByteString *certificate,
+                            const UA_ByteString *issuerCertificates,
+                            const size_t issuerCertificatesSize,
+                            const UA_ByteString *privateKey,
+                            const UA_String *privateKeyFormat) {
+    UA_CHECK(server && certificateGroupId && certificateTypeId && certificate,
              return UA_STATUSCODE_BADINTERNALERROR);
 
-    if(closeSessions) {
-        session_list_entry *current;
-        LIST_FOREACH(current, &server->sessions, pointers) {
-            UA_Session *session = &current->session;
-            if(!session->channel)
-                continue;
-            if(!UA_ByteString_equal(oldCertificate,
-                                    &session->channel->securityPolicy->localCertificate))
-                continue;
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
 
-            UA_LOCK(&server->serviceMutex);
-            UA_Server_removeSessionByToken(server, &session->authenticationToken,
-                                           UA_SHUTDOWNREASON_CLOSE);
-            UA_UNLOCK(&server->serviceMutex);
-        }
+    /* The server currently only supports the DefaultApplicationGroup */
+    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    if(!UA_NodeId_equal(certificateGroupId, &defaultApplicationGroup))
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+
+    UA_CertificateGroup certGroup = server->config.secureChannelPKI;
+
+    if(!UA_NodeId_equal(&certGroup.certificateGroupId, &defaultApplicationGroup))
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    if(certGroup.verifyCertificate(&certGroup, certificate, issuerCertificates, issuerCertificatesSize) != UA_STATUSCODE_GOOD) {
+        return UA_STATUSCODE_BADCERTIFICATEINVALID;
     }
+
+    /* TODO: Report an error if the public key does not match the existing Certificate and the privateKey was not provided. */
+    /* TODO: Verify that the current user has the required rights. */
 
     /* Gracefully close all SecureChannels. And restart the
      * BinaryProtocolManager once it has fully stopped. */
-    if(closeSecureChannels) {
-        UA_ServerComponent *binaryProtocolManager =
+    UA_ServerComponent *binaryProtocolManager =
             getServerComponentByName(server, UA_STRING("binary"));
-        if(binaryProtocolManager) {
-            binaryProtocolManager->notifyState = notifySecureChannelsStopped;
-            binaryProtocolManager->stop(server, binaryProtocolManager);
-        }
+    if(binaryProtocolManager) {
+        UA_LOCK(&server->serviceMutex);
+        binaryProtocolManager->notifyState = notifySecureChannelsStopped;
+        binaryProtocolManager->stop(server, binaryProtocolManager);
     }
 
-    size_t i = 0;
-    while(i < server->config.endpointsSize) {
+    for(size_t i = 0; i < server->config.endpointsSize; i++) {
         UA_EndpointDescription *ed = &server->config.endpoints[i];
-        if(UA_ByteString_equal(&ed->serverCertificate, oldCertificate)) {
-            UA_String_clear(&ed->serverCertificate);
-            UA_String_copy(newCertificate, &ed->serverCertificate);
-            UA_SecurityPolicy *sp = getSecurityPolicyByUri(server,
-                            &server->config.endpoints[i].securityPolicyUri);
-            UA_CHECK_MEM(sp, return UA_STATUSCODE_BADINTERNALERROR);
-            sp->updateCertificateAndPrivateKey(sp, *newCertificate, *newPrivateKey);
-        }
-        i++;
-    }
+        UA_SecurityPolicy *sp = getSecurityPolicyByUri(server, &server->config.endpoints[i].securityPolicyUri);
+        UA_CHECK_MEM(sp, return UA_STATUSCODE_BADINTERNALERROR);
 
+        if(UA_NodeId_equal(certificateTypeId, &sp->certificateTypeId)) {
+            UA_String_clear(&ed->serverCertificate);
+            UA_String_copy(certificate, &ed->serverCertificate);
+
+            retval = sp->updateCertificateAndPrivateKey(sp, *certificate, *privateKey);
+            if(retval != UA_STATUSCODE_GOOD)
+                return retval;
+        }
+    }
     return UA_STATUSCODE_GOOD;
 }
 

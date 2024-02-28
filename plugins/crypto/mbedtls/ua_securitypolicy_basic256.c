@@ -554,15 +554,18 @@ updateCertificateAndPrivateKey_sp_basic256(UA_SecurityPolicy *securityPolicy,
     if (retval != UA_STATUSCODE_GOOD)
         return retval;
 
-    /* Set the new private key */
-    mbedtls_pk_free(&pc->localPrivateKey);
-    mbedtls_pk_init(&pc->localPrivateKey);
-
-    int mbedErr = UA_mbedTLS_LoadPrivateKey(&newPrivateKey, &pc->localPrivateKey, &pc->entropyContext);
-
-    if(mbedErr) {
-        retval = UA_STATUSCODE_BADSECURITYCHECKSFAILED;
-        goto error;
+    if(newPrivateKey.length > 0) {
+        /* Set the new private key */
+        mbedtls_pk_free(&pc->localPrivateKey);
+        mbedtls_pk_init(&pc->localPrivateKey);
+        int mbedErr = UA_mbedTLS_LoadPrivateKey(&newPrivateKey, &pc->localPrivateKey, &pc->entropyContext);
+        if(mbedErr) {
+            retval = UA_STATUSCODE_BADSECURITYCHECKSFAILED;
+            goto error;
+        }
+    } else {
+        /* TODO: Check if the public key match the existing private key */
+        //mbedtls_pk_check_pair();
     }
 
     retval = asym_makeThumbprint_sp_basic256(securityPolicy,
@@ -668,6 +671,8 @@ UA_SecurityPolicy_Basic256(UA_SecurityPolicy *policy, const UA_ByteString localC
     policy->logger = logger;
 
     policy->policyUri = UA_STRING("http://opcfoundation.org/UA/SecurityPolicy#Basic256\0");
+    policy->certificateGroupId = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    policy->certificateTypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_RSAMINAPPLICATIONCERTIFICATETYPE);
     policy->securityLevel = 0;
 
     UA_SecurityPolicyAsymmetricModule *const asymmetricModule = &policy->asymmetricModule;
