@@ -24,14 +24,17 @@ clearVerifyAllowAll(UA_CertificateGroup *certGroup) {
 
 void UA_CertificateGroup_AcceptAll(UA_CertificateGroup *certGroup) {
     /* Clear the structure, as it may have already been initialized. */
+    UA_NodeId groupId = certGroup->certificateGroupId;
     if(certGroup->clear)
         certGroup->clear(certGroup);
+    UA_NodeId_copy(&groupId, &certGroup->certificateGroupId);
     certGroup->verifyCertificate = verifyCertificateAllowAll;
     certGroup->clear = clearVerifyAllowAll;
     certGroup->getTrustList = NULL;
     certGroup->setTrustList = NULL;
     certGroup->addToTrustList = NULL;
     certGroup->removeFromTrustList = NULL;
+    certGroup->getRejectedList = NULL;
 }
 
 #ifndef UA_ENABLE_ENCRYPTION

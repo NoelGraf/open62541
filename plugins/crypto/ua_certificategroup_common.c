@@ -234,19 +234,25 @@ checkCertificateInList(UA_CertificateGroup *certGroup, const UA_ByteString *cert
     trustList.specifiedLists = UA_TRUSTLISTMASKS_ALL;
     UA_StatusCode retval = certGroup->getTrustList(certGroup, &trustList);
 
-    if(retval != UA_STATUSCODE_GOOD)
+    bool inListContained = false;
+
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_TrustListDataType_clear(&trustList);
         return retval;
+    }
 
     for(size_t i = 0; i < trustList.trustedCertificatesSize; i++) {
         if(UA_ByteString_equal(certificate, &trustList.trustedCertificates[i]))
-            return true;
+            inListContained = true;
     }
     for(size_t i = 0; i < trustList.issuerCertificatesSize; i++) {
         if(UA_ByteString_equal(certificate, &trustList.issuerCertificates[i]))
-            return true;
+            inListContained = true;
     }
 
-    return false;
+    UA_TrustListDataType_clear(&trustList);
+
+    return inListContained;
 }
 
 static UA_StatusCode

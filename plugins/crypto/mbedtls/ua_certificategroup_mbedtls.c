@@ -158,8 +158,10 @@ reloadCertificates(CertInfo *ci, UA_CertificateGroup *certGroup,
             goto error;
     }
 
+    UA_TrustListDataType_clear(&trustList);
+
     error:
-    UA_clear(&trustList, &UA_TYPES[UA_TYPES_TRUSTLISTDATATYPE]);
+    UA_TrustListDataType_clear(&trustList);
     if(err) {
         retval = UA_STATUSCODE_BADINTERNALERROR;
     }
@@ -181,6 +183,17 @@ FileCertStore_verifyCertificate(UA_CertificateGroup *certGroup,
     UA_StatusCode certFlag = reloadCertificates(&ci, certGroup, issuerCertificates, issuerCertificatesSize);
     if(certFlag != UA_STATUSCODE_GOOD) {
         return certFlag;
+    }
+
+    /* Accept the certificate if the store is empty */
+    /* TODO: Intended? */
+    if(ci.trustedCertificates.raw.len == 0 &&
+       ci.trustedIssuers.raw.len == 0 &&
+       ci.trustedCertificateCrls.raw.len == 0 &&
+       ci.trustedIssuerCrls.raw.len == 0) {
+        UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_USERLAND,
+                       "No certificate store configured. Accepting the certificate.");
+        return UA_STATUSCODE_GOOD;
     }
 
     /* Parse the certificate */
@@ -425,7 +438,6 @@ UA_CertificateGroup_Filestore(UA_CertificateGroup *certGroup, UA_NodeId *certifi
 
     if(certGroup->clear)
         certGroup->clear(certGroup);
-    memset(certGroup, 0, sizeof(UA_CertificateGroup));
 
     UA_NodeId_copy(certificateGroupId, &certGroup->certificateGroupId);
 
@@ -439,7 +451,6 @@ UA_CertificateGroup_Filestore(UA_CertificateGroup *certGroup, UA_NodeId *certifi
     }
 
     /* Set PKi Store data */
-    memset(certGroup, 0, sizeof(UA_CertificateGroup));
     certGroup->getTrustList = FileCertStore_getTrustList;
     certGroup->setTrustList = FileCertStore_setTrustList;
 
