@@ -390,6 +390,11 @@ UA_Server_init(UA_Server *server) {
     res = initNS0(server);
     UA_CHECK_STATUS(res, goto cleanup);
 
+#ifdef UA_ENABLE_ENCRYPTION
+    res = initNS0PushManagement(server);
+    UA_CHECK_STATUS(res, goto cleanup);
+#endif
+
 #ifdef UA_ENABLE_NODESET_INJECTOR
     UA_UNLOCK(&server->serviceMutex);
     res = UA_Server_injectNodesets(server);
@@ -534,17 +539,6 @@ UA_Server_removeCallback(UA_Server *server, UA_UInt64 callbackId) {
     UA_UNLOCK(&server->serviceMutex);
 }
 
-static void
-notifySecureChannelsStopped(UA_Server *server, struct UA_ServerComponent *sc,
-                            UA_LifecycleState state) {
-    if(sc->state == UA_LIFECYCLESTATE_STOPPED &&
-       server->state == UA_LIFECYCLESTATE_STARTED) {
-        sc->notifyState = NULL; /* remove the callback */
-        sc->start(server, sc);
-        UA_UNLOCK(&server->serviceMutex);
-    }
-}
-
 UA_StatusCode UA_EXPORT
 UA_Server_updateCertificate(UA_Server *server,
                             const UA_NodeId *certificateGroupId,
@@ -575,16 +569,6 @@ UA_Server_updateCertificate(UA_Server *server,
 
     /* TODO: Report an error if the public key does not match the existing Certificate and the privateKey was not provided. */
     /* TODO: Verify that the current user has the required rights. */
-
-    /* Gracefully close all SecureChannels. And restart the
-     * BinaryProtocolManager once it has fully stopped. */
-    UA_ServerComponent *binaryProtocolManager =
-            getServerComponentByName(server, UA_STRING("binary"));
-    if(binaryProtocolManager) {
-        UA_LOCK(&server->serviceMutex);
-        binaryProtocolManager->notifyState = notifySecureChannelsStopped;
-        binaryProtocolManager->stop(server, binaryProtocolManager);
-    }
 
     for(size_t i = 0; i < server->config.endpointsSize; i++) {
         UA_EndpointDescription *ed = &server->config.endpoints[i];

@@ -14,6 +14,7 @@
  *    Copyright 2019 (c) HMS Industrial Networks AB (Author: Jonas Green)
  *    Copyright 2021 (c) Fraunhofer IOSB (Author: Andreas Ebner)
  *    Copyright 2022 (c) Christian von Arnim, ISW University of Stuttgart (for VDW and umati)
+ *    Copyright 2024 (c) Fraunhofer IOSB (Author: Noel Graf)
  */
 
 #ifndef UA_SERVER_INTERNAL_H_
@@ -726,6 +727,11 @@ addNode_finish(UA_Server *server, UA_Session *session, const UA_NodeId *nodeId);
 /**********************/
 
 UA_StatusCode initNS0(UA_Server *server);
+
+#ifdef UA_ENABLE_ENCRYPTION
+UA_StatusCode
+initNS0PushManagement(UA_Server *server);
+#endif
 
 #ifdef UA_ENABLE_DIAGNOSTICS
 void createSessionObject(UA_Server *server, UA_Session *session);
