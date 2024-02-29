@@ -322,6 +322,12 @@ struct UA_SecurityPolicy {
                                                     const UA_ByteString newCertificate,
                                                     const UA_ByteString newPrivateKey);
 
+    UA_StatusCode (*createSigningRequest)(UA_SecurityPolicy *securityPolicy,
+                                          const UA_String *subjectName,
+                                          const UA_Boolean *regenerateKey,
+                                          const UA_ByteString *nonce,
+                                          UA_ByteString *csr);
+
     /* Deletes the dynamic content of the policy */
     void (*clear)(UA_SecurityPolicy *policy);
 };

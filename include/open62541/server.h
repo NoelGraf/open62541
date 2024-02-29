@@ -208,9 +208,6 @@ struct UA_ServerConfig {
     UA_Boolean allowNonePolicyPassword;
 
     /* Different sets of certificates are trusted for SecureChannel / Session */
-    size_t certificateGroupsSize;
-    UA_CertificateGroup *certificateGroups;
-
     UA_CertificateGroup secureChannelPKI;
     UA_CertificateGroup sessionPKI;
 
@@ -1821,6 +1818,19 @@ UA_Server_updateCertificate(UA_Server *server,
                             const size_t issuerCertificatesSize,
                             const UA_ByteString *privateKey,
                             const UA_String *privateKeyFormat);
+
+/**
+ * Creates a Signing Request at Runtime
+ * ---------------------------------------- */
+
+UA_StatusCode UA_EXPORT
+UA_Server_createSigningRequest(UA_Server *server,
+                               const UA_NodeId *certificateGroupId,
+                               const UA_NodeId *certificateTypeId,
+                               const UA_String *subjectName,
+                               const UA_Boolean *regenerateKey,
+                               const UA_ByteString *nonce,
+                               UA_ByteString *csr);
 
 /**
  * Utility Functions

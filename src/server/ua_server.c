@@ -570,7 +570,7 @@ UA_Server_updateCertificate(UA_Server *server,
         return UA_STATUSCODE_BADINTERNALERROR;
 
     if(certGroup.verifyCertificate(&certGroup, certificate, issuerCertificates, issuerCertificatesSize) != UA_STATUSCODE_GOOD) {
-        return UA_STATUSCODE_BADCERTIFICATEINVALID;
+        return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
     }
 
     /* TODO: Report an error if the public key does not match the existing Certificate and the privateKey was not provided. */
@@ -601,6 +601,39 @@ UA_Server_updateCertificate(UA_Server *server,
         }
     }
     return UA_STATUSCODE_GOOD;
+}
+
+UA_StatusCode UA_EXPORT
+UA_Server_createSigningRequest(UA_Server *server,
+                               const UA_NodeId *certificateGroupId,
+                               const UA_NodeId *certificateTypeId,
+                               const UA_String *subjectName,
+                               const UA_Boolean *regenerateKey,
+                               const UA_ByteString *nonce,
+                               UA_ByteString *csr) {
+
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    /* The server currently only supports the DefaultApplicationGroup */
+    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    if(!UA_NodeId_equal(certificateGroupId, &defaultApplicationGroup))
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+
+    UA_CertificateGroup certGroup = server->config.secureChannelPKI;
+
+    if(!UA_NodeId_equal(&certGroup.certificateGroupId, &defaultApplicationGroup))
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    for(size_t i = 0; i < server->config.endpointsSize; i++) {
+        UA_SecurityPolicy *sp = getSecurityPolicyByUri(server, &server->config.endpoints[i].securityPolicyUri);
+        UA_CHECK_MEM(sp, return UA_STATUSCODE_BADINTERNALERROR);
+
+        if(UA_NodeId_equal(certificateTypeId, &sp->certificateTypeId)) {
+            retval = sp->createSigningRequest(sp, subjectName, regenerateKey, nonce, csr);
+            return retval;
+        }
+    }
+    return UA_STATUSCODE_BADINTERNALERROR;
 }
 
 /***************************/

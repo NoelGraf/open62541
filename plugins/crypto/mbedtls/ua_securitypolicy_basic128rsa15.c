@@ -654,6 +654,144 @@ updateCertificateAndPrivateKey_sp_basic128rsa15(UA_SecurityPolicy *securityPolic
 }
 
 static UA_StatusCode
+createSigningRequest_sp_basic128rsa15(UA_SecurityPolicy *securityPolicy,
+                                       const UA_String *subjectName,
+                                       const UA_Boolean *regenerateKey,
+                                       const UA_ByteString *nonce,
+                                       UA_ByteString *csr) {
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+    int ret = 0;
+
+    /* Check parameter */
+    if (securityPolicy == NULL || csr == NULL) {
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+
+    if(securityPolicy->policyContext == NULL)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    Basic128Rsa15_PolicyContext *pc =
+            (Basic128Rsa15_PolicyContext *) securityPolicy->policyContext;
+
+    /* Get X509 certificate */
+    mbedtls_x509_crt x509Cert;
+    mbedtls_x509_crt_init(&x509Cert);
+    UA_ByteString certificateStr = UA_mbedTLS_CopyDataFormatAware(&securityPolicy->localCertificate);
+    ret = mbedtls_x509_crt_parse(&x509Cert, certificateStr.data, certificateStr.length);
+    UA_ByteString_clear(&certificateStr);
+    if(ret) {
+        return UA_STATUSCODE_BADCERTIFICATEINVALID;
+    }
+
+    mbedtls_x509write_csr  request;
+    mbedtls_x509write_csr_init(&request);
+    /* Set message digest algorithms in CSR context */
+    mbedtls_x509write_csr_set_md_alg(&request, MBEDTLS_MD_SHA256);
+
+    /* Set key usage in CSR context */
+    if(mbedtls_x509write_csr_set_key_usage(&request, MBEDTLS_X509_KU_DIGITAL_SIGNATURE |
+                                                     MBEDTLS_X509_KU_DATA_ENCIPHERMENT |
+                                                     MBEDTLS_X509_KU_NON_REPUDIATION |
+                                                     MBEDTLS_X509_KU_KEY_ENCIPHERMENT) != 0) {
+        mbedtls_x509_crt_free(&x509Cert);
+        mbedtls_x509write_csr_free(&request);
+        return UA_STATUSCODE_BADINTERNALERROR;
+    }
+
+    /* Add entropy */
+    if(nonce != NULL && nonce->length > 0) {
+        if (mbedtls_entropy_update_manual(&pc->entropyContext, (const unsigned char*)(nonce->data),
+                                          nonce->length) != 0) {
+            mbedtls_x509_crt_free(&x509Cert);
+            mbedtls_x509write_csr_free(&request);
+            return UA_STATUSCODE_BADINTERNALERROR;
+        }
+    }
+
+    /* Get subject from argument or read it from certificate */
+    char *subj = NULL;
+    if(subjectName != NULL && subjectName->length > 0) {
+        /* subject from argument */
+        subj = (char *)UA_malloc(subjectName->length + 1);
+        if(subj == NULL) {
+            mbedtls_x509_crt_free(&x509Cert);
+            mbedtls_x509write_csr_free(&request);
+            return UA_STATUSCODE_BADOUTOFMEMORY;
+        }
+        memset(subj, 0x00, subjectName->length + 1);
+        strncpy(subj, (char *)subjectName->data, subjectName->length);
+        /* search for / in subject and replace it by comma */
+        char *p = subj;
+        for(size_t i = 0; i < subjectName->length; i++) {
+            if (*p == '/' ) {
+                *p = ',';
+            }
+            ++p;
+        }
+    }
+    else {
+        /* read subject from certificate */
+        const size_t subjectMaxSize = 512;
+
+        mbedtls_x509_name s = x509Cert.subject;
+        subj = (char *)UA_malloc(subjectMaxSize);
+        if (subj == NULL) {
+            mbedtls_x509_crt_free(&x509Cert);
+            mbedtls_x509write_csr_free(&request);
+            return UA_STATUSCODE_BADOUTOFMEMORY;
+        }
+        ret = mbedtls_x509_dn_gets(subj, subjectMaxSize, &s);
+        if (ret <= 0) {
+            mbedtls_x509write_csr_free(&request);
+            UA_free(subj);
+            return UA_STATUSCODE_BADINTERNALERROR;
+        }
+    }
+
+    /* Set the subject in CSR context */
+    ret = mbedtls_x509write_csr_set_subject_name(&request, subj);
+    if(ret != 0) {
+        if (ret != 0) {
+            mbedtls_x509_crt_free(&x509Cert);
+            mbedtls_x509write_csr_free(&request);
+            UA_free(subj);
+            return UA_STATUSCODE_BADINTERNALERROR;
+        }
+    }
+
+    /* Get the subject alternate names from certificate and set them in CSR context*/
+    const mbedtls_x509_sequence *san_list = &x509Cert.subject_alt_names;
+    mbedtls_x509write_csr_set_subject_alt_name(&request, san_list);
+
+    /* Set private key in CSR context */
+    mbedtls_x509write_csr_set_key(&request, &pc->localPrivateKey);
+
+    unsigned char requestBuf[4096];
+    memset(requestBuf, 0, sizeof(requestBuf));
+    ret = mbedtls_x509write_csr_der(&request, requestBuf, sizeof(requestBuf), mbedtls_ctr_drbg_random, &pc->drbgContext);
+    if(ret <= 0 ) {
+        mbedtls_x509_crt_free(&x509Cert);
+        mbedtls_x509write_csr_free(&request);
+        UA_free(subj);
+        return UA_STATUSCODE_BADINTERNALERROR;
+    }
+
+    size_t byteCount = (size_t)ret;  /* number of CSR data bytes located at the end of the request buffer */
+    size_t offset = sizeof(requestBuf) - byteCount;
+
+    /* copy return parameter into a ByteString */
+    UA_ByteString_init(csr);
+    UA_ByteString_allocBuffer(csr, byteCount);
+    memcpy(csr->data, requestBuf + offset, byteCount);
+
+    mbedtls_x509_crt_free(&x509Cert);
+    mbedtls_x509write_csr_free(&request);
+    UA_free (subj);
+
+    return retval;
+}
+
+static UA_StatusCode
 policyContext_newContext_sp_basic128rsa15(UA_SecurityPolicy *securityPolicy,
                                           const UA_ByteString localPrivateKey) {
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
@@ -851,6 +989,7 @@ UA_SecurityPolicy_Basic128Rsa15(UA_SecurityPolicy *policy, const UA_ByteString l
         channelContext_compareCertificate_sp_basic128rsa15;
 
     policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_basic128rsa15;
+    policy->createSigningRequest = createSigningRequest_sp_basic128rsa15;
     policy->clear = clear_sp_basic128rsa15;
 
     UA_StatusCode res = policyContext_newContext_sp_basic128rsa15(policy, localPrivateKey);

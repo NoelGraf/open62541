@@ -13,11 +13,23 @@
 
 #include <mbedtls/md.h>
 #include <mbedtls/x509_crt.h>
+#include <mbedtls/x509_csr.h>
 #include <mbedtls/ctr_drbg.h>
 
 // MBEDTLS_ENTROPY_HARDWARE_ALT should be defined if your hardware does not supportd platform entropy
 
 #define UA_SHA1_LENGTH 20
+
+#define MBEDTLS_SAN_MAX_LEN    64
+
+#define MBEDTLS_ASN1_CHK_CLEANUP_ADD(g, f) \
+    do                                     \
+    {                                      \
+        if ((ret = (f)) < 0)               \
+        goto cleanup;                      \
+        else                               \
+        (g) += ret;                        \
+    } while (0)
 
 _UA_BEGIN_DECLS
 
@@ -64,6 +76,8 @@ int UA_mbedTLS_LoadPrivateKey(const UA_ByteString *key, mbedtls_pk_context *targ
 UA_StatusCode UA_mbedTLS_LoadLocalCertificate(const UA_ByteString *certData, UA_ByteString *target);
 
 UA_ByteString UA_mbedTLS_CopyDataFormatAware(const UA_ByteString *data);
+
+int mbedtls_x509write_csr_set_subject_alt_name(mbedtls_x509write_csr *ctx, const mbedtls_x509_sequence* sanlist);
 
 _UA_END_DECLS
 

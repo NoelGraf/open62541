@@ -14,6 +14,9 @@
 #include <mbedtls/sha1.h>
 #include <mbedtls/version.h>
 #include <mbedtls/x509_crt.h>
+#include <mbedtls/asn1write.h>
+#include <mbedtls/oid.h>
+#include <mbedtls/platform.h>
 
 void
 swapBuffers(UA_ByteString *const bufA, UA_ByteString *const bufB) {
@@ -324,6 +327,77 @@ UA_mbedTLS_CopyDataFormatAware(const UA_ByteString *data) {
     }
 
     return result;
+}
+
+static size_t
+mbedtls_get_seq_list_deep(const mbedtls_x509_sequence* sanlist) {
+    size_t ret = 0;
+    const mbedtls_x509_sequence* cur = sanlist;
+    while (cur) {
+        ++ret;
+        cur = cur->next;
+    }
+
+    return ret;
+}
+
+int mbedtls_x509write_csr_set_subject_alt_name(mbedtls_x509write_csr *ctx, const mbedtls_x509_sequence* sanlist) {
+    int	ret = 0;
+    size_t sandeep = 0;
+    const mbedtls_x509_sequence* cur = sanlist;
+    unsigned char* buf;
+    unsigned char* pc;
+    size_t len;
+    size_t buflen = 0;
+
+    /* How many alt names to be written */
+    sandeep = mbedtls_get_seq_list_deep(sanlist);
+    if (sandeep == 0)
+        return ret;
+
+    buflen = MBEDTLS_SAN_MAX_LEN * sandeep + sandeep;
+    buf = (unsigned char *)mbedtls_calloc(1, buflen);
+    if(!buf)
+        return MBEDTLS_ERR_ASN1_ALLOC_FAILED;
+
+    memset(buf, 0, buflen);
+    pc = buf + buflen;
+
+    len = 0;
+    while(cur) {
+        switch (cur->buf.tag & 0x0F) {
+            case MBEDTLS_X509_SAN_DNS_NAME:
+            case MBEDTLS_X509_SAN_RFC822_NAME:
+            case MBEDTLS_X509_SAN_UNIFORM_RESOURCE_IDENTIFIER:
+            case MBEDTLS_X509_SAN_IP_ADDRESS:
+                MBEDTLS_ASN1_CHK_CLEANUP_ADD(len,
+                                             mbedtls_asn1_write_raw_buffer(&pc, buf, (const unsigned char *)cur->buf.p,
+                                                                           cur->buf.len));
+                MBEDTLS_ASN1_CHK_CLEANUP_ADD(len, mbedtls_asn1_write_len(&pc, buf, cur->buf.len));
+                MBEDTLS_ASN1_CHK_CLEANUP_ADD(len, mbedtls_asn1_write_tag(&pc, buf,
+                                                                         MBEDTLS_ASN1_CONTEXT_SPECIFIC | cur->buf.tag));
+                break;
+            default:
+                /* Error out on an unsupported SAN */
+                ret = MBEDTLS_ERR_X509_FEATURE_UNAVAILABLE;
+                goto cleanup;
+        }
+
+        cur = cur->next;
+    }
+
+    MBEDTLS_ASN1_CHK_CLEANUP_ADD(len, mbedtls_asn1_write_len(&pc, buf, len));
+    MBEDTLS_ASN1_CHK_CLEANUP_ADD(len, mbedtls_asn1_write_tag(&pc, buf, MBEDTLS_ASN1_CONSTRUCTED | MBEDTLS_ASN1_SEQUENCE));
+
+    ret = mbedtls_x509write_csr_set_extension(ctx, MBEDTLS_OID_SUBJECT_ALT_NAME,
+                                              MBEDTLS_OID_SIZE(MBEDTLS_OID_SUBJECT_ALT_NAME), buf + buflen - len, len);
+
+    mbedtls_free(buf);
+    return ret;
+
+    cleanup:
+    mbedtls_free(buf);
+    return ret;
 }
 
 #endif
