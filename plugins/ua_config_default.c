@@ -442,6 +442,12 @@ setDefaultConfig(UA_ServerConfig *conf, UA_UInt16 portNumber) {
     if(!conf->sessionPKI.logging)
         conf->sessionPKI.logging = conf->logging;
 
+    /* Set Certificate GroupIds */
+    conf->secureChannelPKI.certificateGroupId =
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    conf->sessionPKI.certificateGroupId =
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP);
+
     /* Certificate Group that accepts every certificate. Can be
      * overwritten when the policy is specialized. */
     UA_CertificateGroup_AcceptAll(&conf->secureChannelPKI);
