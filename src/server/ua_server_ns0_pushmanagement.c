@@ -109,6 +109,65 @@ createSigningRequest(UA_Server *server,
 }
 
 static UA_StatusCode
+getRejectedList(UA_Server *server,
+                const UA_NodeId *sessionId, void *sessionHandle,
+                const UA_NodeId *methodId, void *methodContext,
+                const UA_NodeId *objectId, void *objectContext,
+                size_t inputSize, const UA_Variant *input,
+                size_t outputSize, UA_Variant *output) {
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+    size_t rejectedListSize = 0;
+    UA_CertificateGroup certGroup = server->config.secureChannelPKI;
+
+    /* Default Application Group */
+    UA_ByteString *rejectedListSecureChannel = NULL;
+    size_t rejectedListSecureChannelSize = 0;
+    certGroup.getRejectedList(&certGroup, &rejectedListSecureChannel, &rejectedListSecureChannelSize);
+    rejectedListSize += rejectedListSecureChannelSize;
+
+    /* User Token Group */
+    certGroup = server->config.sessionPKI;
+    UA_ByteString *rejectedListSession = NULL;
+    size_t rejectedListSessionSize = 0;
+    certGroup.getRejectedList(&certGroup, &rejectedListSession, &rejectedListSessionSize);
+    rejectedListSize += rejectedListSessionSize;
+
+    if(rejectedListSize == 0) {
+        UA_Variant_setArray(&output[0], NULL, rejectedListSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+        return UA_STATUSCODE_GOOD;
+    }
+
+    UA_ByteString *rejectedList = (UA_ByteString*)UA_Array_new(rejectedListSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+    if(rejectedList == NULL) {
+        UA_Array_delete(rejectedListSecureChannel, rejectedListSecureChannelSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+        UA_Array_delete(rejectedListSession, rejectedListSessionSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
+
+    memcpy(rejectedList, rejectedListSecureChannel, rejectedListSecureChannelSize * sizeof(UA_ByteString));
+    memcpy(rejectedList + rejectedListSecureChannelSize, rejectedListSession, rejectedListSessionSize * sizeof(UA_ByteString));
+
+    UA_Variant_setArrayCopy(&output[0], rejectedList,
+                        rejectedListSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+
+    UA_Array_delete(rejectedListSecureChannel, rejectedListSecureChannelSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+    UA_Array_delete(rejectedListSession, rejectedListSessionSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+    UA_free(rejectedList);
+
+    return retval;
+}
+
+static UA_StatusCode
+applyChanges(UA_Server *server,
+             const UA_NodeId *sessionId, void *sessionHandle,
+             const UA_NodeId *methodId, void *methodContext,
+             const UA_NodeId *objectId, void *objectContext,
+             size_t inputSize, const UA_Variant *input,
+             size_t outputSize, UA_Variant *output) {
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
+}
+
+static UA_StatusCode
 writeGroupVariables(UA_Server *server) {
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
 
@@ -160,6 +219,12 @@ initNS0PushManagement(UA_Server *server) {
 
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CREATESIGNINGREQUEST), createSigningRequest);
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATIONTYPE_CREATESIGNINGREQUEST), createSigningRequest);
+
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_GETREJECTEDLIST), getRejectedList);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATIONTYPE_GETREJECTEDLIST), getRejectedList);
+
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_APPLYCHANGES), applyChanges);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATIONTYPE_APPLYCHANGES), applyChanges);
 
     return retval;
 }
