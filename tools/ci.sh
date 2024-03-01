@@ -244,6 +244,8 @@ function unit_tests_encryption {
           -DUA_BUILD_EXAMPLES=ON \
           -DUA_BUILD_UNIT_TESTS=ON \
           -DUA_ENABLE_ENCRYPTION=$1 \
+          -DUA_ENABLE_PUSHMANAGEMENT=ON \
+          -DUA_NAMESPACE_ZERO=FULL \
           -DUA_FORCE_WERROR=ON \
           ..
     make ${MAKEOPTS}
@@ -324,6 +326,8 @@ function unit_tests_valgrind {
     cmake -DCMAKE_BUILD_TYPE=Debug \
           -DUA_BUILD_UNIT_TESTS=ON \
           -DUA_ENABLE_ENCRYPTION=$1 \
+          -DUA_ENABLE_PUSHMANAGEMENT=ON \
+          -DUA_NAMESPACE_ZERO=FULL \
           -DUA_ENABLE_SUBSCRIPTIONS_EVENTS=ON \
           -DUA_ENABLE_JSON_ENCODING=ON \
           -DUA_ENABLE_XML_ENCODING=ON \
@@ -357,6 +361,7 @@ function examples_valgrind {
     cmake -DCMAKE_BUILD_TYPE=Debug \
           -DUA_BUILD_EXAMPLES=ON \
           -DUA_ENABLE_ENCRYPTION=$1 \
+          -DUA_ENABLE_PUSHMANAGEMENT=ON \
           -DUA_ENABLE_SUBSCRIPTIONS_EVENTS=ON \
           -DUA_ENABLE_SUBSCRIPTIONS_ALARMS_CONDITIONS=ON \
           -DUA_ENABLE_JSON_ENCODING=ON \
@@ -396,6 +401,8 @@ function build_clang_analyzer {
           -DUA_BUILD_EXAMPLES=ON \
           -DUA_BUILD_UNIT_TESTS=ON \
           -DUA_ENABLE_ENCRYPTION=MBEDTLS \
+          -DUA_ENABLE_PUSHMANAGEMENT=ON \
+          -DUA_NAMESPACE_ZERO=FULL \
           -DUA_ENABLE_SUBSCRIPTIONS_EVENTS=ON \
           -DUA_ENABLE_JSON_ENCODING=ON \
           -DUA_ENABLE_XML_ENCODING=ON \

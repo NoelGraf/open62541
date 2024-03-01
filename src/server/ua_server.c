@@ -390,7 +390,7 @@ UA_Server_init(UA_Server *server) {
     res = initNS0(server);
     UA_CHECK_STATUS(res, goto cleanup);
 
-#ifdef UA_ENABLE_ENCRYPTION
+#ifdef UA_ENABLE_PUSHMANAGEMENT
     res = initNS0PushManagement(server);
     UA_CHECK_STATUS(res, goto cleanup);
 #endif

@@ -728,7 +728,7 @@ addNode_finish(UA_Server *server, UA_Session *session, const UA_NodeId *nodeId);
 
 UA_StatusCode initNS0(UA_Server *server);
 
-#ifdef UA_ENABLE_ENCRYPTION
+#ifdef UA_ENABLE_PUSHMANAGEMENT
 UA_StatusCode
 initNS0PushManagement(UA_Server *server);
 #endif

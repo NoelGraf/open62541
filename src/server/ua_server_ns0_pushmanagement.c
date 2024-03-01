@@ -7,7 +7,7 @@
 
 #include "ua_server_internal.h"
 
-#ifdef UA_ENABLE_ENCRYPTION
+#ifdef UA_ENABLE_PUSHMANAGEMENT
 
 static UA_StatusCode
 writeGDSNs0VariableArray(UA_Server *server, const UA_NodeId id, void *v,
