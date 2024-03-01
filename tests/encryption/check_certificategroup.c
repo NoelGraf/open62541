@@ -265,6 +265,13 @@ START_TEST(get_rejectedlist) {
     retval = UA_Client_connect(client, "opc.tcp://localhost:4840");
     ck_assert_uint_eq(retval, UA_STATUSCODE_BADSECURITYCHECKSFAILED);
 
+    UA_ByteString *rejectedList = NULL;
+    size_t rejectedListSize = 0;
+    retval = config->secureChannelPKI.getRejectedList(&config->secureChannelPKI, &rejectedList, &rejectedListSize);
+    ck_assert_uint_eq(retval, UA_STATUSCODE_GOOD);
+    ck_assert_uint_eq(rejectedListSize, 1);
+
+    UA_Array_delete(rejectedList, rejectedListSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
     UA_Client_delete(client);
 }
 END_TEST
