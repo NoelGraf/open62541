@@ -67,6 +67,19 @@ getFileContext(UA_FileInfo *fileInfo, const UA_NodeId *sessionId, const UA_UInt3
     return NULL;
 }
 
+static UA_CertificateGroup*
+getCertGroup(UA_Server *server, const UA_NodeId *objectId) {
+    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
+    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
+    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
+        return &server->config.secureChannelPKI;
+    }
+    if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
+        return &server->config.sessionPKI;
+    }
+    return NULL;
+}
+
 static UA_StatusCode
 writeGDSNs0VariableArray(UA_Server *server, const UA_NodeId id, void *v,
                          size_t length, const UA_DataType *type) {
@@ -270,16 +283,8 @@ addCertificate(UA_Server *server,
     trustList.trustedCertificates = certificates;
     trustList.trustedCertificatesSize = 1;
 
-    UA_CertificateGroup *certGroup;
-    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
-    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
-    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = &server->config.secureChannelPKI;
-    }
-    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = &server->config.sessionPKI;
-    }
-    else {
+    UA_CertificateGroup *certGroup = getCertGroup(server, objectId);
+    if(certGroup == NULL) {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     }
 
@@ -313,16 +318,8 @@ removeCertificate(UA_Server *server,
     /* TODO: check if TrustList Object is read only */
     /* TODO: If the Certificate is a CA Certificate that has CRLs then all CRLs for that CA are removed as well */
 
-    UA_CertificateGroup *certGroup;
-    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
-    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
-    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = &server->config.secureChannelPKI;
-    }
-    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = &server->config.sessionPKI;
-    }
-    else {
+    UA_CertificateGroup *certGroup = getCertGroup(server, objectId);
+    if(certGroup == NULL) {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     }
 
@@ -396,16 +393,8 @@ openTrustList(UA_Server *server,
 
     UA_Byte fileOpenMode = *(UA_Byte*)input[0].data;
 
-    UA_CertificateGroup *certGroup;
-    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
-    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
-    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = &server->config.secureChannelPKI;
-    }
-    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = &server->config.sessionPKI;
-    }
-    else {
+    UA_CertificateGroup *certGroup = getCertGroup(server, objectId);
+    if(certGroup == NULL) {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     }
 
@@ -498,16 +487,8 @@ openTrustListWithMask(UA_Server *server,
 
     UA_UInt32 mask = *(UA_UInt32*)input[0].data;
 
-    UA_CertificateGroup *certGroup;
-    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
-    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
-    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = &server->config.secureChannelPKI;
-    }
-    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = &server->config.sessionPKI;
-    }
-    else {
+    UA_CertificateGroup *certGroup = getCertGroup(server, objectId);
+    if(certGroup == NULL) {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     }
 
@@ -595,16 +576,8 @@ readTrustList(UA_Server *server,
     UA_UInt32 fileHandle = *(UA_UInt32*)input[0].data;
     UA_Int32 length = *(UA_Int32*)input[1].data;
 
-    UA_CertificateGroup *certGroup;
-    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
-    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
-    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = &server->config.secureChannelPKI;
-    }
-    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = &server->config.sessionPKI;
-    }
-    else {
+    UA_CertificateGroup *certGroup = getCertGroup(server, objectId);
+    if(certGroup == NULL) {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     }
 
@@ -667,16 +640,8 @@ writeTrustList(UA_Server *server,
     if(data.length == 0)
         return UA_STATUSCODE_GOOD;
 
-    UA_CertificateGroup *certGroup;
-    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
-    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
-    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = &server->config.secureChannelPKI;
-    }
-    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = &server->config.sessionPKI;
-    }
-    else {
+    UA_CertificateGroup *certGroup = getCertGroup(server, objectId);
+    if(certGroup == NULL) {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     }
 
@@ -721,16 +686,8 @@ closeTrustList(UA_Server *server,
 
     UA_UInt32 fileHandle = *(UA_UInt32*)input[0].data;
 
-    UA_CertificateGroup *certGroup;
-    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
-    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
-    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = &server->config.secureChannelPKI;
-    }
-    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = &server->config.sessionPKI;
-    }
-    else {
+    UA_CertificateGroup *certGroup = getCertGroup(server, objectId);
+    if(certGroup == NULL) {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     }
 
@@ -772,16 +729,8 @@ getPositionTrustList(UA_Server *server,
 
     UA_UInt32 fileHandle = *(UA_UInt32*)input[0].data;
 
-    UA_CertificateGroup *certGroup;
-    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
-    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
-    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = &server->config.secureChannelPKI;
-    }
-    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = &server->config.sessionPKI;
-    }
-    else {
+    UA_CertificateGroup *certGroup = getCertGroup(server, objectId);
+    if(certGroup == NULL) {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     }
 
@@ -818,16 +767,8 @@ setPositionTrustList(UA_Server *server,
     UA_UInt32 fileHandle = *(UA_UInt32*)input[0].data;
     UA_UInt64 position = *(UA_UInt32*)input[1].data;
 
-    UA_CertificateGroup *certGroup;
-    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
-    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
-    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = &server->config.secureChannelPKI;
-    }
-    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = &server->config.sessionPKI;
-    }
-    else {
+    UA_CertificateGroup *certGroup = getCertGroup(server, objectId);
+    if(certGroup == NULL) {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     }
 
