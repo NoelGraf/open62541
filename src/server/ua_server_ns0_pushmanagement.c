@@ -12,6 +12,61 @@
 
 #define UA_SHA1_LENGTH 20
 
+typedef struct UA_FileContext UA_FileContext;
+struct UA_FileContext {
+    LIST_ENTRY(UA_FileContext) listEntry;
+    UA_ByteString *file;
+    UA_UInt32 fileHandle;
+    UA_NodeId sessionId;
+    UA_UInt64 currentPos;
+    UA_Byte openFileMode;
+};
+
+typedef struct UA_FileInfo UA_FileInfo;
+struct UA_FileInfo {
+    UA_UInt16 openCount;
+    LIST_HEAD(, UA_FileContext)fileContext;
+};
+
+/* TODO: Optimize search */
+static UA_StatusCode
+createFileHandleId(UA_FileInfo *fileInfo, UA_UInt32 *fileHandle) {
+    if(fileInfo == NULL || fileHandle == NULL)
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    UA_UInt32 id;
+    UA_Boolean isFree = true;
+    for(id = 1; id < UA_UINT32_MAX; id++) {
+        UA_FileContext *fileContext = NULL;
+        LIST_FOREACH(fileContext, &fileInfo->fileContext, listEntry) {
+            if(fileContext->fileHandle == id){
+                isFree = false;
+                break;
+            }
+        }
+        if(isFree) {
+            *fileHandle = id;
+            return UA_STATUSCODE_GOOD;
+        }
+        isFree = true;
+    }
+    return UA_STATUSCODE_BADINTERNALERROR;
+}
+
+static UA_FileContext*
+getFileContext(UA_FileInfo *fileInfo, const UA_NodeId *sessionId, const UA_UInt32 fileHandle) {
+    if(fileInfo == NULL || sessionId == NULL)
+        return NULL;
+
+    UA_FileContext *fileContext = NULL;
+    LIST_FOREACH(fileContext, &fileInfo->fileContext, listEntry) {
+        if(fileContext->fileHandle == fileHandle &&
+           UA_NodeId_equal(&fileContext->sessionId, sessionId)){
+            return fileContext;
+        }
+    }
+    return NULL;
+}
+
 static UA_StatusCode
 writeGDSNs0VariableArray(UA_Server *server, const UA_NodeId id, void *v,
                          size_t length, const UA_DataType *type) {
@@ -215,24 +270,24 @@ addCertificate(UA_Server *server,
     trustList.trustedCertificates = certificates;
     trustList.trustedCertificatesSize = 1;
 
-    UA_CertificateGroup certGroup;
+    UA_CertificateGroup *certGroup;
     UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
     UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
     if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = server->config.secureChannelPKI;
+        certGroup = &server->config.secureChannelPKI;
     }
     else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = server->config.sessionPKI;
+        certGroup = &server->config.sessionPKI;
     }
     else {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
     }
 
-    if(certGroup.verifyCertificate(&certGroup, &certificate, NULL, 0) != UA_STATUSCODE_GOOD) {
+    if(certGroup->verifyCertificate(certGroup, &certificate, NULL, 0) != UA_STATUSCODE_GOOD) {
         return UA_STATUSCODE_BADCERTIFICATEINVALID;
     }
 
-    retval = certGroup.addToTrustList(&certGroup, &trustList);
+    retval = certGroup->addToTrustList(certGroup, &trustList);
     return retval;
 }
 
@@ -258,14 +313,14 @@ removeCertificate(UA_Server *server,
     /* TODO: check if TrustList Object is read only */
     /* TODO: If the Certificate is a CA Certificate that has CRLs then all CRLs for that CA are removed as well */
 
-    UA_CertificateGroup certGroup;
+    UA_CertificateGroup *certGroup;
     UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
     UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
     if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
-        certGroup = server->config.secureChannelPKI;
+        certGroup = &server->config.secureChannelPKI;
     }
     else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
-        certGroup = server->config.sessionPKI;
+        certGroup = &server->config.sessionPKI;
     }
     else {
         return UA_STATUSCODE_BADINVALIDARGUMENT;
@@ -277,7 +332,7 @@ removeCertificate(UA_Server *server,
 
     UA_ByteString *certificates;
     size_t certificatesSize = 0;
-    certGroup.getTrustList(&certGroup, &trustList);
+    certGroup->getTrustList(certGroup, &trustList);
 
     if(isTrustedCertificate) {
         certificates = trustList.trustedCertificates;
@@ -313,7 +368,7 @@ removeCertificate(UA_Server *server,
     }
 
     if(list.specifiedLists != UA_TRUSTLISTMASKS_NONE) {
-        retval = certGroup.removeFromTrustList(&certGroup, &list);
+        retval = certGroup->removeFromTrustList(certGroup, &list);
     } else {
         UA_LOG_INFO(UA_Log_Stdout, UA_LOGCATEGORY_SERVER, "The certificate to remove was not found");
         retval = UA_STATUSCODE_BADINVALIDARGUMENT;
@@ -321,6 +376,475 @@ removeCertificate(UA_Server *server,
 
     UA_String_clear(&thumbpr);
     UA_TrustListDataType_clear(&trustList);
+
+    return retval;
+}
+
+static UA_StatusCode
+openTrustList(UA_Server *server,
+              const UA_NodeId *sessionId, void *sessionHandle,
+              const UA_NodeId *methodId, void *methodContext,
+              const UA_NodeId *objectId, void *objectContext,
+              size_t inputSize, const UA_Variant *input,
+              size_t outputSize, UA_Variant *output) {
+
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    /*check for input types*/
+    if(!UA_Variant_hasScalarType(&input[0], &UA_TYPES[UA_TYPES_BYTE]))/*FileMode*/
+        return UA_STATUSCODE_BADTYPEMISMATCH;
+
+    UA_Byte fileOpenMode = *(UA_Byte*)input[0].data;
+
+    UA_CertificateGroup *certGroup;
+    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
+    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
+    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
+        certGroup = &server->config.secureChannelPKI;
+    }
+    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
+        certGroup = &server->config.sessionPKI;
+    }
+    else {
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+
+    UA_TrustListDataType trustList;
+    memset(&trustList, 0, sizeof(UA_TrustListDataType));
+    trustList.specifiedLists = UA_TRUSTLISTMASKS_ALL;
+
+    certGroup->getTrustList(certGroup, &trustList);
+
+    UA_ByteString *encTrustList = UA_ByteString_new();
+    UA_ByteString_init(encTrustList);
+    retval = UA_encodeBinary(&trustList, &UA_TYPES[UA_TYPES_TRUSTLISTDATATYPE], encTrustList);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_free(encTrustList);
+        UA_TrustListDataType_clear(&trustList);
+        return retval;
+    }
+
+    UA_TrustListDataType_clear(&trustList);
+
+    if(certGroup->applicationContext == NULL) {
+        UA_FileInfo *fileInfo = (UA_FileInfo*)malloc(sizeof(UA_FileInfo));
+        fileInfo->openCount = 0;
+        LIST_INIT(&fileInfo->fileContext);
+        certGroup->applicationContext = (void*)fileInfo;
+    }
+
+    UA_FileInfo *fileInfo = (UA_FileInfo*)certGroup->applicationContext;
+
+    UA_FileContext *fileContext = (UA_FileContext*)malloc(sizeof(UA_FileContext));
+    fileContext->file = encTrustList;
+    fileContext->sessionId = *sessionId;
+    fileContext->openFileMode = fileOpenMode;
+    fileContext->currentPos = 0;
+    retval = createFileHandleId(fileInfo, &fileContext->fileHandle);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_ByteString_delete(fileContext->file);
+        UA_free(fileContext);
+        if(fileInfo->openCount == 0) {
+            UA_free(fileInfo);
+            certGroup->applicationContext = NULL;
+        }
+        return retval;
+    }
+
+    if(fileOpenMode & UA_OPENFILEMODE_READ) {
+        UA_FileContext *fileContextTmp = NULL;
+        LIST_FOREACH(fileContextTmp, &fileInfo->fileContext, listEntry) {
+            if(fileContextTmp->openFileMode & (UA_OPENFILEMODE_WRITE | UA_OPENFILEMODE_ERASEEXISTING))
+                retval = UA_STATUSCODE_BADNOTREADABLE;
+        }
+    } else if(fileOpenMode & (UA_OPENFILEMODE_WRITE | UA_OPENFILEMODE_ERASEEXISTING)) {
+        if(fileInfo->openCount != 0)
+            retval = UA_STATUSCODE_BADNOTWRITABLE;
+    } else {
+        retval = UA_STATUSCODE_BADINVALIDSTATE;
+    }
+
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_ByteString_delete(fileContext->file);
+        UA_free(fileContext);
+        if(fileInfo->openCount == 0) {
+            UA_free(fileInfo);
+            certGroup->applicationContext = NULL;
+        }
+        return retval;
+    }
+
+    fileInfo->openCount += 1;
+    UA_Variant_setScalarCopy(output, &fileContext->fileHandle, &UA_TYPES[UA_TYPES_UINT32]);
+
+    LIST_INSERT_HEAD(&fileInfo->fileContext, fileContext, listEntry);
+
+    return UA_STATUSCODE_GOOD;
+}
+
+static UA_StatusCode
+openTrustListWithMask(UA_Server *server,
+                      const UA_NodeId *sessionId, void *sessionHandle,
+                      const UA_NodeId *methodId, void *methodContext,
+                      const UA_NodeId *objectId, void *objectContext,
+                      size_t inputSize, const UA_Variant *input,
+                      size_t outputSize, UA_Variant *output) {
+
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    /*check for input types*/
+    if(!UA_Variant_hasScalarType(&input[0], &UA_TYPES[UA_TYPES_UINT32])) /*Mask*/
+        return UA_STATUSCODE_BADTYPEMISMATCH;
+
+    UA_UInt32 mask = *(UA_UInt32*)input[0].data;
+
+    UA_CertificateGroup *certGroup;
+    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
+    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
+    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
+        certGroup = &server->config.secureChannelPKI;
+    }
+    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
+        certGroup = &server->config.sessionPKI;
+    }
+    else {
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+
+    UA_TrustListDataType trustList;
+    memset(&trustList, 0, sizeof(UA_TrustListDataType));
+    trustList.specifiedLists = mask;
+
+    certGroup->getTrustList(certGroup, &trustList);
+
+    UA_ByteString *encTrustList = UA_ByteString_new();
+    UA_ByteString_init(encTrustList);
+    retval = UA_encodeBinary(&trustList, &UA_TYPES[UA_TYPES_TRUSTLISTDATATYPE], encTrustList);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_free(encTrustList);
+        UA_TrustListDataType_clear(&trustList);
+        return retval;
+    }
+
+    UA_TrustListDataType_clear(&trustList);
+
+    if(certGroup->applicationContext == NULL) {
+        UA_FileInfo *fileInfo = (UA_FileInfo*)malloc(sizeof(UA_FileInfo));
+        fileInfo->openCount = 0;
+        LIST_INIT(&fileInfo->fileContext);
+        certGroup->applicationContext = (void*)fileInfo;
+    }
+
+    UA_FileInfo *fileInfo = (UA_FileInfo*)certGroup->applicationContext;
+
+    UA_FileContext *fileContext = (UA_FileContext*)malloc(sizeof(UA_FileContext));
+    fileContext->file = encTrustList;
+    fileContext->sessionId = *sessionId;
+    fileContext->openFileMode = UA_OPENFILEMODE_READ;
+    fileContext->currentPos = 0;
+    retval = createFileHandleId(fileInfo, &fileContext->fileHandle);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_ByteString_delete(fileContext->file);
+        UA_free(fileContext);
+        if(fileInfo->openCount == 0) {
+            UA_free(fileInfo);
+            certGroup->applicationContext = NULL;
+        }
+        return retval;
+    }
+
+    UA_FileContext *fileContextTmp = NULL;
+    LIST_FOREACH(fileContextTmp, &fileInfo->fileContext, listEntry) {
+        if(fileContextTmp->openFileMode & (UA_OPENFILEMODE_WRITE | UA_OPENFILEMODE_ERASEEXISTING))
+            retval = UA_STATUSCODE_BADNOTREADABLE;
+    }
+
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_ByteString_delete(fileContext->file);
+        UA_free(fileContext);
+        if(fileInfo->openCount == 0) {
+            UA_free(fileInfo);
+            certGroup->applicationContext = NULL;
+        }
+        return retval;
+    }
+
+    fileInfo->openCount += 1;
+    UA_Variant_setScalarCopy(output, &fileContext->fileHandle, &UA_TYPES[UA_TYPES_UINT32]);
+
+    LIST_INSERT_HEAD(&fileInfo->fileContext, fileContext, listEntry);
+
+    return UA_STATUSCODE_GOOD;
+}
+
+static UA_StatusCode
+readTrustList(UA_Server *server,
+              const UA_NodeId *sessionId, void *sessionHandle,
+              const UA_NodeId *methodId, void *methodContext,
+              const UA_NodeId *objectId, void *objectContext,
+              size_t inputSize, const UA_Variant *input,
+              size_t outputSize, UA_Variant *output) {
+
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    /*check for input types*/
+    if(!UA_Variant_hasScalarType(&input[0], &UA_TYPES[UA_TYPES_UINT32]) || /*FileHandle*/
+       !UA_Variant_hasScalarType(&input[1], &UA_TYPES[UA_TYPES_INT32])) /*Length*/
+        return UA_STATUSCODE_BADTYPEMISMATCH;
+
+    UA_UInt32 fileHandle = *(UA_UInt32*)input[0].data;
+    UA_Int32 length = *(UA_Int32*)input[1].data;
+
+    UA_CertificateGroup *certGroup;
+    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
+    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
+    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
+        certGroup = &server->config.secureChannelPKI;
+    }
+    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
+        certGroup = &server->config.sessionPKI;
+    }
+    else {
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+
+    if(certGroup->applicationContext == NULL)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    UA_FileInfo *fileInfo = (UA_FileInfo*)certGroup->applicationContext;
+    UA_FileContext *fileContext = getFileContext(fileInfo, sessionId, fileHandle);
+
+    if(fileContext == NULL)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    if(fileContext->openFileMode & (UA_OPENFILEMODE_WRITE | UA_OPENFILEMODE_ERASEEXISTING))
+        return UA_STATUSCODE_BADINVALIDSTATE;
+
+    /* check boundaries */
+    if((size_t)length >= fileContext->file->length) {
+        length = fileContext->file->length;
+    }
+    if((size_t)length >= (fileContext->file->length - fileContext->currentPos)) {
+        length = (fileContext->file->length - fileContext->currentPos);
+    }
+
+    UA_ByteString *readBuffer = UA_ByteString_new();
+    UA_ByteString_init(readBuffer);
+    if(length > 0) {
+        readBuffer->length = length;
+        readBuffer->data = (UA_Byte*) UA_malloc(readBuffer->length * sizeof(UA_Byte));
+        memcpy(readBuffer->data, fileContext->file->data+fileContext->currentPos, readBuffer->length);
+        fileContext->currentPos += length;
+    } else {
+        readBuffer->length = 0;
+        readBuffer->data = NULL;
+    }
+
+    UA_Variant_setScalarCopy(output, readBuffer, &UA_TYPES[UA_TYPES_BYTESTRING]);
+    UA_ByteString_delete(readBuffer);
+
+    return retval;
+}
+
+static UA_StatusCode
+writeTrustList(UA_Server *server,
+               const UA_NodeId *sessionId, void *sessionHandle,
+               const UA_NodeId *methodId, void *methodContext,
+               const UA_NodeId *objectId, void *objectContext,
+               size_t inputSize, const UA_Variant *input,
+               size_t outputSize, UA_Variant *output) {
+
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    /*check for input types*/
+    if(!UA_Variant_hasScalarType(&input[0], &UA_TYPES[UA_TYPES_UINT32]) || /*FileHandle*/
+       !UA_Variant_hasScalarType(&input[1], &UA_TYPES[UA_TYPES_BYTESTRING])) /*Data*/
+        return UA_STATUSCODE_BADTYPEMISMATCH;
+
+    UA_UInt32 fileHandle = *(UA_UInt32*)input[0].data;
+    UA_ByteString data = *(UA_ByteString*)input[1].data;
+
+    if(data.length == 0)
+        return UA_STATUSCODE_GOOD;
+
+    UA_CertificateGroup *certGroup;
+    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
+    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
+    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
+        certGroup = &server->config.secureChannelPKI;
+    }
+    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
+        certGroup = &server->config.sessionPKI;
+    }
+    else {
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+
+    if(certGroup->applicationContext == NULL)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    UA_FileInfo *fileInfo = (UA_FileInfo*)certGroup->applicationContext;
+    UA_FileContext *fileContext = getFileContext(fileInfo, sessionId, fileHandle);
+
+    if(fileContext == NULL)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    if(fileContext->openFileMode & UA_OPENFILEMODE_READ)
+        return UA_STATUSCODE_BADINVALIDSTATE;
+
+    UA_TrustListDataType trustList;
+    memset(&trustList, 0, sizeof(UA_TrustListDataType));
+    retval = UA_decodeBinary(&data, &trustList, &UA_TYPES[UA_TYPES_TRUSTLISTDATATYPE], NULL);
+
+    if(retval != UA_STATUSCODE_GOOD)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    /* TODO: Currently added directly, later this should be added after called closeAndUpdate function. */
+    retval = certGroup->addToTrustList(certGroup, &trustList);
+
+    return retval;
+}
+
+static UA_StatusCode
+closeTrustList(UA_Server *server,
+               const UA_NodeId *sessionId, void *sessionHandle,
+               const UA_NodeId *methodId, void *methodContext,
+               const UA_NodeId *objectId, void *objectContext,
+               size_t inputSize, const UA_Variant *input,
+               size_t outputSize, UA_Variant *output) {
+
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    /*check for input types*/
+    if(!UA_Variant_hasScalarType(&input[0], &UA_TYPES[UA_TYPES_UINT32])) /*FileHandle*/
+        return UA_STATUSCODE_BADTYPEMISMATCH;
+
+    UA_UInt32 fileHandle = *(UA_UInt32*)input[0].data;
+
+    UA_CertificateGroup *certGroup;
+    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
+    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
+    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
+        certGroup = &server->config.secureChannelPKI;
+    }
+    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
+        certGroup = &server->config.sessionPKI;
+    }
+    else {
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+
+    if(!certGroup->applicationContext)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    UA_FileInfo *fileInfo = (UA_FileInfo*)certGroup->applicationContext;
+    UA_FileContext *fileContext = getFileContext(fileInfo, sessionId, fileHandle);
+
+    if(fileContext == NULL)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    LIST_REMOVE(fileContext, listEntry);
+    fileInfo->openCount -= 1;
+
+    UA_ByteString_delete(fileContext->file);
+    UA_free(fileContext);
+    if(fileInfo->openCount == 0) {
+        UA_free(fileInfo);
+        certGroup->applicationContext = NULL;
+    }
+
+    return retval;
+}
+
+static UA_StatusCode
+getPositionTrustList(UA_Server *server,
+                     const UA_NodeId *sessionId, void *sessionHandle,
+                     const UA_NodeId *methodId, void *methodContext,
+                     const UA_NodeId *objectId, void *objectContext,
+                     size_t inputSize, const UA_Variant *input,
+                     size_t outputSize, UA_Variant *output) {
+
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    /*check for input types*/
+    if(!UA_Variant_hasScalarType(&input[0], &UA_TYPES[UA_TYPES_UINT32])) /*FileHandle*/
+        return UA_STATUSCODE_BADTYPEMISMATCH;
+
+    UA_UInt32 fileHandle = *(UA_UInt32*)input[0].data;
+
+    UA_CertificateGroup *certGroup;
+    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
+    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
+    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
+        certGroup = &server->config.secureChannelPKI;
+    }
+    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
+        certGroup = &server->config.sessionPKI;
+    }
+    else {
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+
+    if(!certGroup->applicationContext)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    UA_FileInfo *fileInfo = (UA_FileInfo*)certGroup->applicationContext;
+    UA_FileContext *fileContext = getFileContext(fileInfo, sessionId, fileHandle);
+
+    if(fileContext == NULL)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    UA_Variant_setScalarCopy(output, &fileContext->currentPos, &UA_TYPES[UA_TYPES_UINT64]);
+
+    return retval;
+
+}
+
+static UA_StatusCode
+setPositionTrustList(UA_Server *server,
+                     const UA_NodeId *sessionId, void *sessionHandle,
+                     const UA_NodeId *methodId, void *methodContext,
+                     const UA_NodeId *objectId, void *objectContext,
+                     size_t inputSize, const UA_Variant *input,
+                     size_t outputSize, UA_Variant *output) {
+
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    /*check for input types*/
+    if(!UA_Variant_hasScalarType(&input[0], &UA_TYPES[UA_TYPES_UINT32]) || /*FileHandle*/
+       !UA_Variant_hasScalarType(&input[1], &UA_TYPES[UA_TYPES_UINT64])) /*Position*/
+        return UA_STATUSCODE_BADTYPEMISMATCH;
+
+    UA_UInt32 fileHandle = *(UA_UInt32*)input[0].data;
+    UA_UInt64 position = *(UA_UInt32*)input[1].data;
+
+    UA_CertificateGroup *certGroup;
+    UA_NodeId defaultApplicationGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST);
+    UA_NodeId defaultUserTokenGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST);
+    if(UA_NodeId_equal(objectId, &defaultApplicationGroup)) {
+        certGroup = &server->config.secureChannelPKI;
+    }
+    else if(UA_NodeId_equal(objectId, &defaultUserTokenGroup)) {
+        certGroup = &server->config.sessionPKI;
+    }
+    else {
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+
+    if(!certGroup->applicationContext)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    UA_FileInfo *fileInfo = (UA_FileInfo*)certGroup->applicationContext;
+    UA_FileContext *fileContext = getFileContext(fileInfo, sessionId, fileHandle);
+
+    if(fileContext == NULL)
+        return UA_STATUSCODE_BADINTERNALERROR;
+
+    if(fileContext->file->length < position) {
+        fileContext->currentPos = fileContext->file->length;
+    } else {
+        fileContext->currentPos = position;
+    }
 
     return retval;
 }
@@ -403,6 +927,71 @@ initNS0PushManagement(UA_Server *server) {
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE_REMOVECERTIFICATE), removeCertificate);
 
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_ADDCERTIFICATE), removeCertificate);
+
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_OPEN), openTrustList);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_OPEN), openTrustList);
+
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_OPENWITHMASKS), openTrustListWithMask);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE_OPENWITHMASKS), openTrustListWithMask);
+
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_OPENWITHMASKS), openTrustListWithMask);
+
+
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_READ),true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_READ), true);
+
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_READ),true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_READ), true);
+
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_WRITE),true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_WRITE), true);
+
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_WRITE),true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_WRITE), true);
+
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_CLOSE),true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_CLOSE), true);
+
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_CLOSE),true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_CLOSE), true);
+
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_GETPOSITION),true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_GETPOSITION), true);
+
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_GETPOSITION),true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_GETPOSITION), true);
+
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_SETPOSITION),true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_SETPOSITION), true);
+
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_SETPOSITION),true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_SETPOSITION), true);
+
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_READ), readTrustList);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_WRITE), writeTrustList);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_CLOSE), closeTrustList);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_GETPOSITION), getPositionTrustList);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_SETPOSITION), setPositionTrustList);
 
     return retval;
 }
