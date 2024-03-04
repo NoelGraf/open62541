@@ -105,8 +105,7 @@ removeAllFilesFromDir(const char *const path, bool removeSubDirs) {
     return retval;
 }
 
-static char* copyStr(const char* s)
-{
+static char* copyStr(const char* s) {
     size_t len = 1+strlen(s);
     char* p = (char*)malloc(len);
     p[len-1] = 0x00;
@@ -134,40 +133,46 @@ mkpath(char *dir, mode_t mode) {
 }
 
 static UA_StatusCode
-getCertFileName(
-        UA_CertificateGroup *certGroup,
-        const char* path,
-        const UA_ByteString* certificate,
-        char* fileNameBuf,
-        size_t fileNameLen
-) {
+getCertFileName(UA_CertificateGroup *certGroup, const char* path,
+                const UA_ByteString *certificate, char *fileNameBuf,
+                size_t fileNameLen) {
     /* Check parameter */
     if (certGroup == NULL || path == NULL || certificate == NULL || fileNameBuf == NULL) {
         return UA_STATUSCODE_BADINTERNALERROR;
     }
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
 
-    char buf[20];
-    UA_ByteString thumbprint = {20, (UA_Byte*)buf};
+    UA_String thumbprint = UA_STRING_NULL;
+    thumbprint.length = 40;
+    thumbprint.data = (UA_Byte*)malloc(sizeof(UA_Byte)*thumbprint.length);
 
-    /* Create random buffer */
-    size_t idx = 0;
-    for (idx = 0; idx < 5; idx++) {
-        UA_UInt32 number = UA_UInt32_random();
-        memcpy(&thumbprint.data[idx*4], (char*)&number, 4);
-    }
+    UA_String subjectName = UA_STRING_NULL;
 
-    /* Convert bytes to hex string */
-    char thumbprintBuf[41];
-    memset(thumbprintBuf, 0x00, 41);
-    for(idx = 0; idx < 20; idx++) {
-        snprintf(&thumbprintBuf[idx*2], ((20-idx)*2), "%02X", thumbprint.data[idx] & 0xFF);
-    }
+    UA_CertificateUtils_getThumbprint((UA_ByteString*)(uintptr_t)certificate, &thumbprint);
+    UA_CertificateUtils_getSubjectName((UA_ByteString*)(uintptr_t)certificate, &subjectName);
 
-    /* Create filename */
-    if(snprintf(fileNameBuf, fileNameLen, "%s/%s", path, thumbprintBuf) < 0) {
+    if((thumbprint.length + subjectName.length + 2) > fileNameLen) {
+        UA_String_clear(&thumbprint);
+        UA_String_clear(&subjectName);
         return UA_STATUSCODE_BADINTERNALERROR;
     }
+
+    char *thumbprintBuffer = (char*)UA_malloc(thumbprint.length + 1);
+    char *subjectNameBuffer = (char*)UA_malloc(subjectName.length + 1);
+
+    memcpy(thumbprintBuffer, thumbprint.data, thumbprint.length);
+    thumbprintBuffer[thumbprint.length] = '\0';
+    memcpy(subjectNameBuffer, subjectName.data, subjectName.length);
+    subjectNameBuffer[subjectName.length] = '\0';
+
+    if(snprintf(fileNameBuf, fileNameLen, "%s/%s[%s]", path, subjectNameBuffer, thumbprintBuffer) < 0) {
+        retval = UA_STATUSCODE_BADINTERNALERROR;
+    }
+
+    UA_String_clear(&thumbprint);
+    UA_String_clear(&subjectName);
+    UA_free(thumbprintBuffer);
+    UA_free(subjectNameBuffer);
 
     return retval;
 }
@@ -291,7 +296,8 @@ storeList(UA_CertificateGroup *certGroup, const UA_ByteString *list,
 }
 
 static UA_StatusCode
-newList(UA_CertificateGroup *certGroup, const UA_ByteString *list, size_t listSize, const char *listPath) {
+newList(UA_CertificateGroup *certGroup, const UA_ByteString *list,
+        size_t listSize, const char *listPath) {
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
 
     /* Check parameter */
@@ -590,8 +596,8 @@ FileCertStore_addToTrustList(UA_CertificateGroup *certGroup, const UA_TrustListD
 }
 
 UA_StatusCode
-FileCertStore_getRejectedList(UA_CertificateGroup *certGroup, UA_ByteString **rejectedList, size_t *rejectedListSize)
-{
+FileCertStore_getRejectedList(UA_CertificateGroup *certGroup, UA_ByteString **rejectedList,
+                              size_t *rejectedListSize) {
     /* Check parameter */
     if (certGroup == NULL || rejectedList == NULL || rejectedListSize == NULL) {
         return UA_STATUSCODE_BADINTERNALERROR;
@@ -603,7 +609,7 @@ FileCertStore_getRejectedList(UA_CertificateGroup *certGroup, UA_ByteString **re
 }
 
 UA_StatusCode
-FileCertStore_addToRejectedList(UA_CertificateGroup *certGroup, const UA_ByteString *certificate){
+FileCertStore_addToRejectedList(UA_CertificateGroup *certGroup, const UA_ByteString *certificate) {
     /* Check parameter */
     if(certGroup == NULL || certificate == NULL) {
         return UA_STATUSCODE_BADINTERNALERROR;
@@ -670,10 +676,8 @@ FileCertStore_clear(UA_CertificateGroup *certGroup) {
 }
 
 UA_StatusCode
-FileCertStore_createRootDirectory(UA_String *directory,
-                      const UA_NodeId *certificateGroupId,
-                      char** rootDir,
-                      size_t* rootDirLen) {
+FileCertStore_createRootDirectory(UA_String *directory, const UA_NodeId *certificateGroupId,
+                                  char** rootDir, size_t* rootDirLen) {
     char rootDirectory[PATH_MAX];
     *rootDir = NULL;
     *rootDirLen = 0;
