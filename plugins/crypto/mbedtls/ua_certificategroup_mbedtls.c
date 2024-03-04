@@ -566,13 +566,20 @@ UA_CertificateUtils_getThumbprint(UA_ByteString *certificate,
 
     retval = mbedtls_thumbprint_sha1(certificate, &thumbpr);
 
+    UA_String thumb = UA_STRING_NULL;
+    thumb.length = (UA_SHA1_LENGTH * 2) + 1;
+    thumb.data = (UA_Byte*)malloc(sizeof(UA_Byte)*thumb.length);
+
     // Create a string containing a hex representation
-    char *p = (char*)thumbprint->data;
+    char *p = (char*)thumb.data;
     for (size_t i = 0; i < thumbpr.length; i++) {
         p += sprintf(p, "%.2X", thumbpr.data[i]);
     }
 
+    memcpy(thumbprint->data, thumb.data, thumbprint->length);
+
     UA_ByteString_clear(&thumbpr);
+    UA_ByteString_clear(&thumb);
 
     return retval;
 }
