@@ -23,6 +23,7 @@
 #include <open62541/server_config_default.h>
 
 #include "../deps/mp_printf.h"
+#include "crypto/ua_certificategroup_common.h"
 
 #include <stdio.h>
 #ifdef _WIN32
@@ -1098,6 +1099,64 @@ UA_ServerConfig_setDefaultWithSecureSecurityPolicies(UA_ServerConfig *conf,
         return retval;
     }
     conf->securityPolicyNoneDiscoveryOnly = true;
+
+    return UA_STATUSCODE_GOOD;
+}
+
+UA_EXPORT UA_StatusCode
+UA_ServerConfig_setDefaultWithFilestore(UA_ServerConfig *conf,
+                                        UA_UInt16 portNumber,
+                                        const UA_String *storePath) {
+    UA_StatusCode retval = setDefaultConfig(conf, portNumber);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_ServerConfig_clean(conf);
+        return retval;
+    }
+
+    UA_NodeId defaultApplicationGroup =
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    retval = UA_CertificateGroup_Filestore(&conf->secureChannelPKI, &defaultApplicationGroup, storePath);
+    if(retval != UA_STATUSCODE_GOOD)
+        return retval;
+
+    UA_NodeId defaultUserTokenGroup =
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP);
+    retval = UA_CertificateGroup_Filestore(&conf->sessionPKI, &defaultUserTokenGroup, storePath);
+    if(retval != UA_STATUSCODE_GOOD)
+        return retval;
+
+    UA_ByteString *certificates = NULL;
+    size_t certificatesSize = 0;
+    FileCertStore_getCertificates(&conf->secureChannelPKI, &certificates, &certificatesSize);
+
+    UA_ByteString *privateKeys = NULL;
+    size_t privateKeysSize = 0;
+    FileCertStore_getPrivateKeys(&conf->secureChannelPKI, &privateKeys, &privateKeysSize);
+
+    /* TODO: Process all certificates and check for the correct privateKey */
+    if(certificatesSize > 0 && privateKeysSize > 0)
+        retval = UA_ServerConfig_addAllSecurityPolicies(conf, &certificates[0], &privateKeys[0]);
+
+    if(retval == UA_STATUSCODE_GOOD) {
+        retval = UA_AccessControl_default(conf, true, NULL, 0, NULL);
+    }
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_ServerConfig_clean(conf);
+        UA_Array_delete(certificates, certificatesSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+        UA_Array_delete(privateKeys, privateKeysSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+        return retval;
+    }
+
+    retval = UA_ServerConfig_addAllEndpoints(conf);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_ServerConfig_clean(conf);
+        UA_Array_delete(certificates, certificatesSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+        UA_Array_delete(privateKeys, privateKeysSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+        return retval;
+    }
+
+    UA_Array_delete(certificates, certificatesSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
+    UA_Array_delete(privateKeys, privateKeysSize, &UA_TYPES[UA_TYPES_BYTESTRING]);
 
     return UA_STATUSCODE_GOOD;
 }

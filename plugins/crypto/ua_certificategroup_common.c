@@ -609,6 +609,32 @@ FileCertStore_getRejectedList(UA_CertificateGroup *certGroup, UA_ByteString **re
 }
 
 UA_StatusCode
+FileCertStore_getCertificates(UA_CertificateGroup *certGroup, UA_ByteString **certificates,
+                              size_t *certificatesSize) {
+    /* Check parameter */
+    if (certGroup == NULL || certificates == NULL || certificatesSize == NULL) {
+        return UA_STATUSCODE_BADINTERNALERROR;
+    }
+
+    FileCertStore *context = (FileCertStore *)certGroup->context;
+
+    return loadList(certificates, certificatesSize, context->certificateDir);
+}
+
+UA_StatusCode
+FileCertStore_getPrivateKeys(UA_CertificateGroup *certGroup, UA_ByteString **privateKeys,
+                             size_t *privateKeysSize) {
+    /* Check parameter */
+    if (certGroup == NULL || privateKeys == NULL || privateKeysSize == NULL) {
+        return UA_STATUSCODE_BADINTERNALERROR;
+    }
+
+    FileCertStore *context = (FileCertStore *)certGroup->context;
+
+    return loadList(privateKeys, privateKeysSize, context->keyDir);
+}
+
+UA_StatusCode
 FileCertStore_addToRejectedList(UA_CertificateGroup *certGroup, const UA_ByteString *certificate) {
     /* Check parameter */
     if(certGroup == NULL || certificate == NULL) {
@@ -667,6 +693,10 @@ FileCertStore_clear(UA_CertificateGroup *certGroup) {
             UA_free(context->trustedIssuerCrlDir);
         if(context->rejectedCertDir)
             UA_free(context->rejectedCertDir);
+        if(context->certificateDir)
+            UA_free(context->certificateDir);
+        if(context->keyDir)
+            UA_free(context->keyDir);
         if (context->rootDir) {
             UA_free(context->rootDir);
         }
@@ -676,7 +706,7 @@ FileCertStore_clear(UA_CertificateGroup *certGroup) {
 }
 
 UA_StatusCode
-FileCertStore_createRootDirectory(UA_String *directory, const UA_NodeId *certificateGroupId,
+FileCertStore_createRootDirectory(const UA_String *directory, const UA_NodeId *certificateGroupId,
                                   char** rootDir, size_t* rootDirLen) {
     char rootDirectory[PATH_MAX];
     *rootDir = NULL;

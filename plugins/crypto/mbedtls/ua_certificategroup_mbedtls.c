@@ -430,7 +430,8 @@ FileCertStore_verifyCertificate(UA_CertificateGroup *certGroup,
 }
 
 UA_StatusCode
-UA_CertificateGroup_Filestore(UA_CertificateGroup *certGroup, UA_NodeId *certificateGroupId, UA_String *storePath) {
+UA_CertificateGroup_Filestore(UA_CertificateGroup *certGroup, UA_NodeId *certificateGroupId,
+                              const UA_String *storePath) {
     /* Check parameter */
     if(certGroup == NULL || certificateGroupId == NULL) {
         return UA_STATUSCODE_BADINTERNALERROR;
@@ -467,6 +468,8 @@ UA_CertificateGroup_Filestore(UA_CertificateGroup *certGroup, UA_NodeId *certifi
     FileCertStore *context = (FileCertStore *)UA_malloc(sizeof(FileCertStore));
     context->rootDir = rootDir;
     context->rootDirLen = rootDirLen;
+    context->certificateDir = NULL;
+    context->keyDir = NULL;
     certGroup->context = context;
 
     retval |= FileCertStore_setupStorePath("/trusted/certs", rootDir, rootDirLen, &context->trustedCertDir);
@@ -474,6 +477,12 @@ UA_CertificateGroup_Filestore(UA_CertificateGroup *certGroup, UA_NodeId *certifi
     retval |= FileCertStore_setupStorePath("/issuer/certs", rootDir, rootDirLen, &context->trustedIssuerCertDir);
     retval |= FileCertStore_setupStorePath("/issuer/crl", rootDir, rootDirLen, &context->trustedIssuerCrlDir);
     retval |= FileCertStore_setupStorePath("/rejected/certs", rootDir, rootDirLen, &context->rejectedCertDir);
+
+    UA_NodeId userTokenCertGroup = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP);
+    if(UA_NodeId_equal(certificateGroupId, &userTokenCertGroup)) {
+        retval |= FileCertStore_setupStorePath("/own/certs", rootDir, rootDirLen, &context->certificateDir);
+        retval |= FileCertStore_setupStorePath("/own/private", rootDir, rootDirLen, &context->keyDir);
+    }
 
     if(retval != UA_STATUSCODE_GOOD) {
         certGroup->clear(certGroup);

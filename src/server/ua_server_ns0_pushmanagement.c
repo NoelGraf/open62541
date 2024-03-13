@@ -664,7 +664,10 @@ writeTrustList(UA_Server *server,
     if(retval != UA_STATUSCODE_GOOD)
         return UA_STATUSCODE_BADINTERNALERROR;
 
+    /* TODO: 1. Get current trust list 2. Write current trust list 3. Save the edited list in the transaction object. */
+
     /* TODO: Currently added directly, later this should be added after called closeAndUpdate function. */
+    /* TODO: Replace the specified part of the trust list */
     retval = certGroup->addToTrustList(certGroup, &trustList);
 
     return retval;

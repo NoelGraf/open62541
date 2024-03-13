@@ -26,6 +26,10 @@ struct FileCertStore {
     size_t trustedIssuerCrlDirLen;
     char *rejectedCertDir;
     size_t rejectedCertDirLen;
+    char *certificateDir;
+    size_t certificateDirLen;
+    char *keyDir;
+    size_t keyDirLen;
     char *rootDir;
     size_t rootDirLen;
 };
@@ -46,13 +50,19 @@ UA_StatusCode
 FileCertStore_getRejectedList(UA_CertificateGroup *certGroup, UA_ByteString **rejectedList, size_t *rejectedListSize);
 
 UA_StatusCode
+FileCertStore_getCertificates(UA_CertificateGroup *certGroup, UA_ByteString **certificates, size_t *certificatesSize);
+
+UA_StatusCode
+FileCertStore_getPrivateKeys(UA_CertificateGroup *certGroup, UA_ByteString **privateKeys, size_t *privateKeysSize);
+
+UA_StatusCode
 FileCertStore_addToRejectedList(UA_CertificateGroup *certGroup, const UA_ByteString *certificate);
 
 void
 FileCertStore_clear(UA_CertificateGroup *certGroup);
 
 UA_StatusCode
-FileCertStore_createRootDirectory(UA_String *directory,
+FileCertStore_createRootDirectory(const UA_String *directory,
                                   const UA_NodeId *certificateGroupId,
                                   char** rootDir,
                                   size_t* rootDirLen);
