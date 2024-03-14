@@ -169,15 +169,10 @@ reloadCertificates(CertInfo *ci, UA_CertificateGroup *certGroup,
 }
 
 static UA_StatusCode
-FileCertStore_verifyCertificate(UA_CertificateGroup *certGroup,
+verifyCertificate(UA_CertificateGroup *certGroup,
                                const UA_ByteString *certificate,
                                const UA_ByteString *issuerCertificates,
                                size_t issuerCertificatesSize) {
-    /* Check parameter */
-    if(certGroup == NULL || certificate == NULL) {
-        return UA_STATUSCODE_BADINVALIDARGUMENT;
-    }
-
     CertInfo ci;
     CertInfo_init(&ci);
     UA_StatusCode certFlag = reloadCertificates(&ci, certGroup, issuerCertificates, issuerCertificatesSize);
@@ -312,10 +307,6 @@ FileCertStore_verifyCertificate(UA_CertificateGroup *certGroup,
                 /* If the CRL file corresponding to the parent certificate is not present
                  * then return UA_STATUSCODE_BADCERTIFICATEISSUERREVOCATIONUNKNOWN */
                 if(!issuerKnown) {
-                    if(FileCertStore_addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
-                        UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
-                                       "Could not append certificate to rejected list");
-                    }
                     CertInfo_clear(&ci);
                     return UA_STATUSCODE_BADCERTIFICATEISSUERREVOCATIONUNKNOWN;
                 }
@@ -355,10 +346,6 @@ FileCertStore_verifyCertificate(UA_CertificateGroup *certGroup,
             /* If the CRL file corresponding to the parent certificate is not present
              * then return UA_STATUSCODE_BADCERTIFICATEREVOCATIONUNKNOWN */
             if(!issuerKnown) {
-                if(FileCertStore_addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
-                    UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
-                                   "Could not append certificate to rejected list");
-                }
                 CertInfo_clear(&ci);
                 return UA_STATUSCODE_BADCERTIFICATEREVOCATIONUNKNOWN;
             }
@@ -378,20 +365,12 @@ FileCertStore_verifyCertificate(UA_CertificateGroup *certGroup,
 #if MBEDTLS_VERSION_NUMBER >= 0x02060000 && MBEDTLS_VERSION_NUMBER < 0x03000000
     if((remoteCertificate.key_usage & MBEDTLS_X509_KU_KEY_CERT_SIGN) &&
        (remoteCertificate.key_usage & MBEDTLS_X509_KU_CRL_SIGN)) {
-        if(FileCertStore_addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
-            UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
-                           "Could not append certificate to rejected list");
-        }
         CertInfo_clear(&ci);
         return UA_STATUSCODE_BADCERTIFICATEUSENOTALLOWED;
     }
 #else
     if((remoteCertificate.private_key_usage & MBEDTLS_X509_KU_KEY_CERT_SIGN) &&
        (remoteCertificate.private_key_usage & MBEDTLS_X509_KU_CRL_SIGN)) {
-        if(certGroup->addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
-            UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
-                           "Could not append certificate to rejected list");
-        }
         CertInfo_clear(&ci);
         return UA_STATUSCODE_BADCERTIFICATEUSENOTALLOWED;
     }
@@ -407,15 +386,10 @@ FileCertStore_verifyCertificate(UA_CertificateGroup *certGroup,
                        "Verifying the certificate failed with error: %.*s", len-1, buff);
 #endif
         if(flags & (uint32_t)MBEDTLS_X509_BADCERT_NOT_TRUSTED) {
-            if(FileCertStore_addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
-                UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
-                               "Could not append certificate to rejected list");
-            }
             retval = UA_STATUSCODE_BADCERTIFICATEUNTRUSTED;
         } else if(flags & (uint32_t)MBEDTLS_X509_BADCERT_FUTURE ||
                   flags & (uint32_t)MBEDTLS_X509_BADCERT_EXPIRED) {
             retval = UA_STATUSCODE_BADCERTIFICATETIMEINVALID;
-            /* Debug purpose */
         } else if(flags & (uint32_t)MBEDTLS_X509_BADCERT_REVOKED ||
                   flags & (uint32_t)MBEDTLS_X509_BADCRL_EXPIRED) {
             retval = UA_STATUSCODE_BADCERTIFICATEREVOKED;
@@ -426,6 +400,30 @@ FileCertStore_verifyCertificate(UA_CertificateGroup *certGroup,
 
     CertInfo_clear(&ci);
     mbedtls_x509_crt_free(&remoteCertificate);
+    return retval;
+}
+
+static UA_StatusCode
+FileCertStore_verifyCertificate(UA_CertificateGroup *certGroup,
+                                const UA_ByteString *certificate,
+                                const UA_ByteString *issuerCertificates,
+                                size_t issuerCertificatesSize) {
+    /* Check parameter */
+    if(certGroup == NULL || certificate == NULL) {
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+    }
+
+    UA_StatusCode retval =
+            verifyCertificate(certGroup, certificate, issuerCertificates, issuerCertificatesSize);
+    if(retval == UA_STATUSCODE_BADCERTIFICATEUNTRUSTED ||
+       retval == UA_STATUSCODE_BADCERTIFICATEUSENOTALLOWED ||
+       retval == UA_STATUSCODE_BADCERTIFICATEREVOCATIONUNKNOWN ||
+       retval == UA_STATUSCODE_BADCERTIFICATEISSUERREVOCATIONUNKNOWN) {
+        if (FileCertStore_addToRejectedList(certGroup, certificate) != UA_STATUSCODE_GOOD) {
+            UA_LOG_WARNING(certGroup->logging, UA_LOGCATEGORY_SECURITYPOLICY,
+                           "Could not append certificate to rejected list");
+        }
+    }
     return retval;
 }
 
