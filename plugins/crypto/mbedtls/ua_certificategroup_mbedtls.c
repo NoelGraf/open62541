@@ -592,6 +592,26 @@ UA_CertificateUtils_getThumbprint(UA_ByteString *certificate,
 }
 
 UA_StatusCode
+UA_CertificateUtils_getKeySize(UA_ByteString *certificate,
+                               size_t *keySize){
+    mbedtls_x509_crt publicKey;
+    mbedtls_x509_crt_init(&publicKey);
+    int mbedErr = mbedtls_x509_crt_parse(&publicKey, certificate->data, certificate->length);
+    if(mbedErr) {
+        mbedtls_x509_crt_free(&publicKey);
+        return UA_STATUSCODE_BADINTERNALERROR;
+    }
+
+    mbedtls_pk_context *pk_ctx = &publicKey.pk;
+    mbedtls_rsa_context *rsa = (mbedtls_rsa_context*)pk_ctx->pk_ctx;
+    *keySize = mbedtls_rsa_get_len(rsa);
+
+    mbedtls_x509_crt_free(&publicKey);
+
+    return UA_STATUSCODE_GOOD;
+}
+
+UA_StatusCode
 UA_CertificateUtils_decryptPrivateKey(const UA_ByteString privateKey,
                                       const UA_ByteString password,
                                       UA_ByteString *outDerKey) {

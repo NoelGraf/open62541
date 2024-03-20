@@ -62,4 +62,11 @@ UA_CertificateUtils_getThumbprint(UA_ByteString *certificate,
                                   UA_String *thumbprint){
     return UA_STATUSCODE_BADNOTSUPPORTED;
 }
+
+UA_StatusCode
+UA_CertificateUtils_getKeySize(UA_ByteString *certificate,
+                               size_t *keySize){
+    return UA_STATUSCODE_BADNOTSUPPORTED;
+}
+
 #endif
