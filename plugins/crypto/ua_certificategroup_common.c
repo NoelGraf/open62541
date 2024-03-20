@@ -18,7 +18,7 @@
 #include <unistd.h>
 
 
-static UA_StatusCode
+UA_StatusCode
 readFileToByteString(const char *const path, UA_ByteString *data) {
     if (path == NULL || data == NULL) {
         return UA_STATUSCODE_BADINTERNALERROR;
@@ -47,7 +47,7 @@ readFileToByteString(const char *const path, UA_ByteString *data) {
     return UA_STATUSCODE_GOOD;
 }
 
-static UA_StatusCode
+UA_StatusCode
 writeByteStringToFile(const char *const path, const UA_ByteString *data) {
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
 
@@ -66,6 +66,200 @@ writeByteStringToFile(const char *const path, const UA_ByteString *data) {
 
     fclose(fp);
     return retval;
+}
+
+static UA_StatusCode
+deleteFileFromFilestore(char *path, const UA_ByteString oldCertificate, const UA_ByteString newCertificate,
+                        char **matchedFilename, bool *fileDeleted) {
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    *fileDeleted = false;
+
+    /* Check if the file is stored in CertStore and delete it */
+    /* Determine number of files and if the new certificate is already stored */
+    size_t numCerts = 0;
+    DIR *dir = opendir(path);
+    if(dir) {
+        struct dirent *dirent;
+        while((dirent = readdir(dir)) != NULL) {
+            if(dirent->d_type == DT_REG) {
+                /* Create filename to load */
+                char filename[FILENAME_MAX];
+                if(snprintf(filename, FILENAME_MAX, "%s/%s", path, dirent->d_name) < 0) {
+                    closedir(dir);
+                    return UA_STATUSCODE_BADINTERNALERROR;
+                }
+
+                /* Load data from file */
+                UA_ByteString fileData;
+                retval = readFileToByteString(filename, &fileData);
+                if (retval != UA_STATUSCODE_GOOD) {
+                    closedir(dir);
+                    UA_ByteString_clear(&fileData);
+                    return retval;
+                }
+
+                if (UA_ByteString_equal(&newCertificate, &fileData)) {
+                    /* new certificate is already stored */
+                    closedir(dir);
+                    UA_ByteString_clear(&fileData);
+                    return UA_STATUSCODE_GOOD;
+                }
+                UA_ByteString_clear(&fileData);
+                numCerts++;
+            }
+        }
+        closedir(dir);
+    }
+
+    /* Read files from directory */
+    dir = opendir(path);
+    if (dir) {
+        struct dirent *dirent;
+        while ((dirent = readdir(dir)) != NULL) {
+            if (dirent->d_type == DT_REG) {
+
+                /* Create filename to load */
+                char filename[FILENAME_MAX];
+                if(snprintf(filename, FILENAME_MAX, "%s/%s", path, dirent->d_name) < 0) {
+                    closedir(dir);
+                    return UA_STATUSCODE_BADINTERNALERROR;
+                }
+
+                /* Load data from file */
+                UA_ByteString fileData;
+                retval = readFileToByteString(filename, &fileData);
+                if (retval != UA_STATUSCODE_GOOD) {
+                    closedir(dir);
+                    UA_ByteString_clear(&fileData);
+                    return retval;
+                }
+                if (UA_ByteString_equal(&oldCertificate, &fileData)) {
+                    if(numCerts > 1) {
+                        if (remove(filename) != 0) {
+                            closedir(dir);
+                            UA_ByteString_clear(&fileData);
+                            return UA_STATUSCODE_BADINTERNALERROR;
+                        }
+                        *fileDeleted = true;
+                    }
+                    *matchedFilename = strndup(dirent->d_name, strlen(dirent->d_name) - 4);
+                }
+                UA_ByteString_clear(&fileData);
+            }
+        }
+        closedir(dir);
+    }
+    return retval;
+}
+
+UA_StatusCode
+writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_ByteString oldCertificate,
+                                         const UA_ByteString newCertificate, const UA_ByteString newPrivateKey) {
+    UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    /* Certificate handling */
+    char *ownCertPath = "/own/certs";
+    size_t ownCertPathLen = strlen(ownCertPath);
+
+    char *certFilePath = (char*)UA_malloc(storePath.length + ownCertPathLen + 1);
+    memcpy(certFilePath, storePath.data, storePath.length);
+    memcpy(certFilePath + storePath.length, ownCertPath, ownCertPathLen);
+    certFilePath[storePath.length + ownCertPathLen] = '\0';
+
+    char certFilename[FILENAME_MAX];
+    retval = getCertFileName(certFilePath, &newCertificate, certFilename, FILENAME_MAX - 5);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_free(certFilePath);
+        return retval;
+    }
+    strncat(certFilename, ".der", 5);
+
+    char *matchedFilename  = NULL;
+    bool fileDeleted = false;
+    retval = deleteFileFromFilestore(certFilePath, oldCertificate, newCertificate, &matchedFilename, &fileDeleted);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_free(certFilePath);
+        return retval;
+    }
+    UA_free(certFilePath);
+
+    /* The old certificate could not be found in the file system.
+     * Already updated. */
+    if(!matchedFilename) {
+        return UA_STATUSCODE_GOOD;
+    }
+
+    retval = writeByteStringToFile(certFilename, &newCertificate);
+    if (retval != UA_STATUSCODE_GOOD) {
+        return retval;
+    }
+
+    /* Private key handling */
+    char *ownKeyPath = "/own/private";
+    size_t ownKeyPathLen = strlen(ownKeyPath);
+
+    char *keyFilePath = (char*)UA_malloc(storePath.length + ownKeyPathLen + 1);
+    memcpy(keyFilePath, storePath.data, storePath.length);
+    memcpy(keyFilePath + storePath.length, ownKeyPath, ownKeyPathLen);
+    keyFilePath[storePath.length + ownKeyPathLen] = '\0';
+
+    char keyFilename[FILENAME_MAX];
+    retval = getCertFileName(keyFilePath, &newCertificate, keyFilename, FILENAME_MAX - 5);
+    if(retval != UA_STATUSCODE_GOOD) {
+        UA_free(keyFilePath);
+        return retval;
+    }
+    strncat(keyFilename, ".key", 5);
+
+    char *tmp = NULL;
+    if(newPrivateKey.length == 0 || fileDeleted) {
+        size_t tmpLen = strlen(keyFilePath) + strlen(matchedFilename) + 6;
+        tmp = (char *)UA_malloc(tmpLen);
+        if(!tmp)
+            return UA_STATUSCODE_BADOUTOFMEMORY;
+        memset(tmp, 0, tmpLen);
+        strncpy(tmp, keyFilePath, strlen(keyFilePath));
+        strncat(tmp, "/", 2);
+        strncat(tmp, matchedFilename, strlen(matchedFilename));
+        strncat(tmp, ".key", 5);
+    }
+
+    UA_ByteString newKeyData;
+    if(newPrivateKey.length > 0) {
+        newKeyData = newPrivateKey;
+    } else {
+        retval = readFileToByteString(tmp, &newKeyData);
+        if(retval != UA_STATUSCODE_GOOD) {
+            UA_free(tmp);
+            return retval;
+        }
+    }
+    retval = writeByteStringToFile(keyFilename, &newKeyData);
+    if(retval != UA_STATUSCODE_GOOD) {
+        if(tmp)
+            UA_free(tmp);
+        else {
+            UA_free(matchedFilename);
+        }
+        return retval;
+    }
+    if(fileDeleted) {
+        if(remove(tmp) != 0) {
+            UA_free(tmp);
+            return UA_STATUSCODE_BADINTERNALERROR;
+        }
+    }
+
+    if(tmp) {
+        UA_free(tmp);
+        UA_free(matchedFilename);
+    } else {
+        UA_free(matchedFilename);
+    }
+    UA_free(keyFilePath);
+
+    return UA_STATUSCODE_GOOD;
 }
 
 static UA_StatusCode
@@ -132,12 +326,11 @@ mkpath(char *dir, mode_t mode) {
     return mkdir(dir, mode);
 }
 
-static UA_StatusCode
-getCertFileName(UA_CertificateGroup *certGroup, const char* path,
-                const UA_ByteString *certificate, char *fileNameBuf,
-                size_t fileNameLen) {
+UA_StatusCode
+getCertFileName(const char* path, const UA_ByteString *certificate,
+                char *fileNameBuf, size_t fileNameLen) {
     /* Check parameter */
-    if (certGroup == NULL || path == NULL || certificate == NULL || fileNameBuf == NULL) {
+    if (path == NULL || certificate == NULL || fileNameBuf == NULL) {
         return UA_STATUSCODE_BADINTERNALERROR;
     }
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
@@ -165,7 +358,17 @@ getCertFileName(UA_CertificateGroup *certGroup, const char* path,
     memcpy(subjectNameBuffer, subjectName.data, subjectName.length);
     subjectNameBuffer[subjectName.length] = '\0';
 
-    if(snprintf(fileNameBuf, fileNameLen, "%s/%s[%s]", path, subjectNameBuffer, thumbprintBuffer) < 0) {
+    char *subName = NULL;
+    char *substring = "CN=";
+    char *ptr = strstr(subjectNameBuffer, substring);
+
+    if(ptr != NULL) {
+        subName = ptr + 3;
+    } else {
+        subName = subjectNameBuffer;
+    }
+
+    if(snprintf(fileNameBuf, fileNameLen, "%s/%s[%s]", path, subName, thumbprintBuffer) < 0) {
         retval = UA_STATUSCODE_BADINTERNALERROR;
     }
 
@@ -280,7 +483,7 @@ storeList(UA_CertificateGroup *certGroup, const UA_ByteString *list,
             continue;
         /* Create filename to load */
         char filename[FILENAME_MAX];
-        retval = getCertFileName(certGroup, listPath, &list[idx], filename, FILENAME_MAX);
+        retval = getCertFileName(listPath, &list[idx], filename, FILENAME_MAX);
         if(retval != UA_STATUSCODE_GOOD) {
             return UA_STATUSCODE_BADINTERNALERROR;
         }
@@ -663,7 +866,7 @@ FileCertStore_addToRejectedList(UA_CertificateGroup *certGroup, const UA_ByteStr
 
     /* Create filename to store */
     char filename[FILENAME_MAX];
-    retval = getCertFileName(certGroup, context->rejectedCertDir, certificate, filename, FILENAME_MAX);
+    retval = getCertFileName(context->rejectedCertDir, certificate, filename, FILENAME_MAX);
     if(retval != UA_STATUSCODE_GOOD) {
         return UA_STATUSCODE_BADINTERNALERROR;
     }

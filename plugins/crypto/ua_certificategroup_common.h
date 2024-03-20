@@ -13,6 +13,20 @@
 
 _UA_BEGIN_DECLS
 
+UA_StatusCode
+readFileToByteString(const char *const path, UA_ByteString *data);
+
+UA_StatusCode
+writeByteStringToFile(const char *const path, const UA_ByteString *data);
+
+UA_StatusCode
+writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_ByteString oldCertificate,
+                                         const UA_ByteString newCertificate, const UA_ByteString newPrivateKey);
+
+UA_StatusCode
+getCertFileName(const char* path, const UA_ByteString *certificate,
+                char *fileNameBuf, size_t fileNameLen);
+
 typedef struct FileCertStore FileCertStore;
 
 struct FileCertStore {

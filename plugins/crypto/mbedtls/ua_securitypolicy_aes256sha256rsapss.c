@@ -11,6 +11,7 @@
 #ifdef UA_ENABLE_ENCRYPTION_MBEDTLS
 
 #include "securitypolicy_mbedtls_common.h"
+#include "../ua_certificategroup_common.h"
 
 #include <mbedtls/aes.h>
 #include <mbedtls/ctr_drbg.h>
@@ -39,6 +40,11 @@
 #define UA_SECURITYPOLICY_AES256SHA256RSAPSS_MAXASYMKEYLENGTH 512
 
 typedef struct {
+    UA_String certPath;
+} Aes256Sha256RsaPss_FilestoreContext;
+
+typedef struct {
+    void *storeContext;
     UA_ByteString localCertThumbprint;
 
     mbedtls_ctr_drbg_context drbgContext;
@@ -679,8 +685,8 @@ clear_sp_aes256sha256rsapss(UA_SecurityPolicy *securityPolicy) {
 
 static UA_StatusCode
 updateCertificateAndPrivateKey_sp_aes256sha256rsapss(UA_SecurityPolicy *securityPolicy,
-                                                      const UA_ByteString newCertificate,
-                                                      const UA_ByteString newPrivateKey) {
+                                                     const UA_ByteString newCertificate,
+                                                     const UA_ByteString newPrivateKey) {
     if(securityPolicy == NULL)
         return UA_STATUSCODE_BADINTERNALERROR;
 
@@ -948,7 +954,7 @@ error:
     return retval;
 }
 
-UA_StatusCode
+static UA_StatusCode
 UA_SecurityPolicy_Aes256Sha256RsaPss(UA_SecurityPolicy *policy, const UA_ByteString localCertificate,
                                       const UA_ByteString localPrivateKey, const UA_Logger *logger) {
     memset(policy, 0, sizeof(UA_SecurityPolicy));
@@ -1073,7 +1079,6 @@ UA_SecurityPolicy_Aes256Sha256RsaPss(UA_SecurityPolicy *policy, const UA_ByteStr
     channelModule->compareCertificate = (UA_StatusCode (*)(const void *, const UA_ByteString *))
         channelContext_compareCertificate_sp_aes256sha256rsapss;
 
-    policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_aes256sha256rsapss;
     policy->createSigningRequest = createSigningRequest_sp_aes256sha256rsapss;
     policy->clear = clear_sp_aes256sha256rsapss;
 
@@ -1082,6 +1087,68 @@ UA_SecurityPolicy_Aes256Sha256RsaPss(UA_SecurityPolicy *policy, const UA_ByteStr
         clear_sp_aes256sha256rsapss(policy);
 
     return res;
+}
+
+static UA_StatusCode
+updateCertificateAndPrivateKey_sp_aes256sha256rsapss_filestore(UA_SecurityPolicy *securityPolicy,
+                                                               const UA_ByteString newCertificate,
+                                                               const UA_ByteString newPrivateKey) {
+    /* Temporarily save the old certificate file so that it can be removed from CertStore */
+    UA_ByteString localCertificateTmp;
+    UA_ByteString_copy(&securityPolicy->localCertificate, &localCertificateTmp);
+
+    UA_StatusCode retval =
+            updateCertificateAndPrivateKey_sp_aes256sha256rsapss(securityPolicy, newCertificate, newPrivateKey);
+    if(retval != UA_STATUSCODE_GOOD) {
+        return retval;
+    }
+
+    Aes256Sha256RsaPss_PolicyContext *pc =
+            (Aes256Sha256RsaPss_PolicyContext *) securityPolicy->policyContext;
+
+    Aes256Sha256RsaPss_FilestoreContext *sc =
+            (Aes256Sha256RsaPss_FilestoreContext *) pc->storeContext;
+
+    retval = writeCertificateAndPrivateKeyToFilestore(sc->certPath, localCertificateTmp, newCertificate, newPrivateKey);
+    UA_ByteString_clear(&localCertificateTmp);
+
+    return retval;
+}
+
+static void
+clear_sp_aes256sha256rsapss_filestore(UA_SecurityPolicy *securityPolicy) {
+    Aes256Sha256RsaPss_PolicyContext *pc =
+            (Aes256Sha256RsaPss_PolicyContext *) securityPolicy->policyContext;
+
+    Aes256Sha256RsaPss_FilestoreContext *sc =
+            (Aes256Sha256RsaPss_FilestoreContext *) pc->storeContext;
+
+    UA_String_clear(&sc->certPath);
+    UA_free(sc);
+    pc->storeContext = NULL;
+    clear_sp_aes256sha256rsapss(securityPolicy);
+}
+
+UA_StatusCode
+UA_SecurityPolicy_Aes256Sha256RsaPss_Filestore(UA_SecurityPolicy *policy, const UA_String storePath,
+                                               const UA_ByteString localCertificate, const UA_ByteString localPrivateKey,
+                                               const UA_Logger *logger) {
+    UA_StatusCode retval =
+            UA_SecurityPolicy_Aes256Sha256RsaPss(policy, localCertificate, localPrivateKey, logger);
+    policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_aes256sha256rsapss_filestore;
+    policy->clear = clear_sp_aes256sha256rsapss_filestore;
+
+    Aes256Sha256RsaPss_PolicyContext *pc =
+            (Aes256Sha256RsaPss_PolicyContext *) policy->policyContext;
+
+    Aes256Sha256RsaPss_FilestoreContext *sc = (Aes256Sha256RsaPss_FilestoreContext *)
+            UA_malloc(sizeof(Aes256Sha256RsaPss_FilestoreContext));
+    pc->storeContext = (void *)sc;
+
+    memset(sc, 0, sizeof(Aes256Sha256RsaPss_FilestoreContext));
+    UA_String_copy(&storePath, &sc->certPath);
+
+    return retval;
 }
 
 #endif

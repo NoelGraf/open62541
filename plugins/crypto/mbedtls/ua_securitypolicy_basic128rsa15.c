@@ -16,6 +16,7 @@
 #ifdef UA_ENABLE_ENCRYPTION_MBEDTLS
 
 #include "securitypolicy_mbedtls_common.h"
+#include "../ua_certificategroup_common.h"
 
 #include <mbedtls/aes.h>
 #include <mbedtls/ctr_drbg.h>
@@ -41,6 +42,11 @@
 #define UA_SECURITYPOLICY_BASIC128RSA15_MAXASYMKEYLENGTH 512
 
 typedef struct {
+    UA_String certPath;
+} Basic128Rsa15_FilestoreContext;
+
+typedef struct {
+    void *storeContext;
     UA_ByteString localCertThumbprint;
 
     mbedtls_ctr_drbg_context drbgContext;
@@ -872,7 +878,7 @@ error:
     return retval;
 }
 
-UA_StatusCode
+static UA_StatusCode
 UA_SecurityPolicy_Basic128Rsa15(UA_SecurityPolicy *policy, const UA_ByteString localCertificate,
                                 const UA_ByteString localPrivateKey, const UA_Logger *logger) {
     memset(policy, 0, sizeof(UA_SecurityPolicy));
@@ -988,7 +994,6 @@ UA_SecurityPolicy_Basic128Rsa15(UA_SecurityPolicy *policy, const UA_ByteString l
     channelModule->compareCertificate = (UA_StatusCode (*)(const void *, const UA_ByteString *))
         channelContext_compareCertificate_sp_basic128rsa15;
 
-    policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_basic128rsa15;
     policy->createSigningRequest = createSigningRequest_sp_basic128rsa15;
     policy->clear = clear_sp_basic128rsa15;
 
@@ -997,6 +1002,68 @@ UA_SecurityPolicy_Basic128Rsa15(UA_SecurityPolicy *policy, const UA_ByteString l
         clear_sp_basic128rsa15(policy);
 
     return res;
+}
+
+static UA_StatusCode
+updateCertificateAndPrivateKey_sp_basic128rsa15_filestore(UA_SecurityPolicy *securityPolicy,
+                                                          const UA_ByteString newCertificate,
+                                                          const UA_ByteString newPrivateKey) {
+    /* Temporarily save the old certificate file so that it can be removed from CertStore */
+    UA_ByteString localCertificateTmp;
+    UA_ByteString_copy(&securityPolicy->localCertificate, &localCertificateTmp);
+
+    UA_StatusCode retval =
+            updateCertificateAndPrivateKey_sp_basic128rsa15(securityPolicy, newCertificate, newPrivateKey);
+    if(retval != UA_STATUSCODE_GOOD) {
+        return retval;
+    }
+
+    Basic128Rsa15_PolicyContext *pc =
+            (Basic128Rsa15_PolicyContext *) securityPolicy->policyContext;
+
+    Basic128Rsa15_FilestoreContext *sc =
+            (Basic128Rsa15_FilestoreContext *) pc->storeContext;
+
+    retval = writeCertificateAndPrivateKeyToFilestore(sc->certPath, localCertificateTmp, newCertificate, newPrivateKey);
+    UA_ByteString_clear(&localCertificateTmp);
+
+    return retval;
+}
+
+static void
+clear_sp_basic128rsa15_filestore(UA_SecurityPolicy *securityPolicy) {
+    Basic128Rsa15_PolicyContext *pc =
+            (Basic128Rsa15_PolicyContext *) securityPolicy->policyContext;
+
+    Basic128Rsa15_FilestoreContext *sc =
+            (Basic128Rsa15_FilestoreContext *) pc->storeContext;
+
+    UA_String_clear(&sc->certPath);
+    UA_free(sc);
+    pc->storeContext = NULL;
+    clear_sp_basic128rsa15(securityPolicy);
+}
+
+UA_StatusCode
+UA_SecurityPolicy_Basic128Rsa15_Filestore(UA_SecurityPolicy *policy, const UA_String storePath,
+                                          const UA_ByteString localCertificate, const UA_ByteString localPrivateKey,
+                                          const UA_Logger *logger) {
+    UA_StatusCode retval =
+            UA_SecurityPolicy_Basic128Rsa15(policy, localCertificate, localPrivateKey, logger);
+    policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_basic128rsa15_filestore;
+    policy->clear = clear_sp_basic128rsa15_filestore;
+
+    Basic128Rsa15_PolicyContext *pc =
+            (Basic128Rsa15_PolicyContext *) policy->policyContext;
+
+    Basic128Rsa15_FilestoreContext *sc = (Basic128Rsa15_FilestoreContext *)
+            UA_malloc(sizeof(Basic128Rsa15_FilestoreContext));
+    pc->storeContext = (void *)sc;
+
+    memset(sc, 0, sizeof(Basic128Rsa15_FilestoreContext));
+    UA_String_copy(&storePath, &sc->certPath);
+
+    return retval;
 }
 
 #endif

@@ -14,6 +14,7 @@
 #ifdef UA_ENABLE_ENCRYPTION_MBEDTLS
 
 #include "securitypolicy_mbedtls_common.h"
+#include "../ua_certificategroup_common.h"
 
 #include <mbedtls/aes.h>
 #include <mbedtls/ctr_drbg.h>
@@ -43,6 +44,11 @@
 #define UA_SECURITYPOLICY_AES128SHA256RSAOAEP_MAXASYMKEYLENGTH 512
 
 typedef struct {
+    UA_String certPath;
+} Aes128Sha256PsaOaep_FilestoreContext;
+
+typedef struct {
+    void *storeContext;
     UA_ByteString localCertThumbprint;
 
     mbedtls_ctr_drbg_context drbgContext;
@@ -856,9 +862,9 @@ error:
     return retval;
 }
 
-UA_StatusCode
+static UA_StatusCode
 UA_SecurityPolicy_Aes128Sha256RsaOaep(UA_SecurityPolicy *policy, const UA_ByteString localCertificate,
-                                 const UA_ByteString localPrivateKey, const UA_Logger *logger) {
+                                      const UA_ByteString localPrivateKey, const UA_Logger *logger) {
     memset(policy, 0, sizeof(UA_SecurityPolicy));
     policy->logger = logger;
 
@@ -970,7 +976,6 @@ UA_SecurityPolicy_Aes128Sha256RsaOaep(UA_SecurityPolicy *policy, const UA_ByteSt
     channelModule->compareCertificate = (UA_StatusCode (*)(const void *, const UA_ByteString *))
         channelContext_compareCertificate_sp_aes128sha256rsaoaep;
 
-    policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_aes128sha256rsaoaep;
     policy->createSigningRequest = createSigningRequest_sp_aes128sha256rsaoaep;
     policy->clear = clear_sp_aes128sha256rsaoaep;
 
@@ -979,6 +984,68 @@ UA_SecurityPolicy_Aes128Sha256RsaOaep(UA_SecurityPolicy *policy, const UA_ByteSt
         clear_sp_aes128sha256rsaoaep(policy);
 
     return res;
+}
+
+static UA_StatusCode
+updateCertificateAndPrivateKey_sp_aes128sha256rsaoaep_filestore(UA_SecurityPolicy *securityPolicy,
+                                                                const UA_ByteString newCertificate,
+                                                                const UA_ByteString newPrivateKey) {
+    /* Temporarily save the old certificate file so that it can be removed from CertStore */
+    UA_ByteString localCertificateTmp;
+    UA_ByteString_copy(&securityPolicy->localCertificate, &localCertificateTmp);
+
+    UA_StatusCode retval =
+            updateCertificateAndPrivateKey_sp_aes128sha256rsaoaep(securityPolicy, newCertificate, newPrivateKey);
+    if(retval != UA_STATUSCODE_GOOD) {
+        return retval;
+    }
+
+    Aes128Sha256PsaOaep_PolicyContext *pc =
+            (Aes128Sha256PsaOaep_PolicyContext *) securityPolicy->policyContext;
+
+    Aes128Sha256PsaOaep_FilestoreContext *sc =
+            (Aes128Sha256PsaOaep_FilestoreContext *) pc->storeContext;
+
+    retval = writeCertificateAndPrivateKeyToFilestore(sc->certPath, localCertificateTmp, newCertificate, newPrivateKey);
+    UA_ByteString_clear(&localCertificateTmp);
+
+    return retval;
+}
+
+static void
+clear_sp_aes128sha256rsaoaep_filestore(UA_SecurityPolicy *securityPolicy) {
+    Aes128Sha256PsaOaep_PolicyContext *pc =
+            (Aes128Sha256PsaOaep_PolicyContext *) securityPolicy->policyContext;
+
+    Aes128Sha256PsaOaep_FilestoreContext *sc =
+            (Aes128Sha256PsaOaep_FilestoreContext *) pc->storeContext;
+
+    UA_String_clear(&sc->certPath);
+    UA_free(sc);
+    pc->storeContext = NULL;
+    clear_sp_aes128sha256rsaoaep(securityPolicy);
+}
+
+UA_StatusCode
+UA_SecurityPolicy_Aes128Sha256RsaOaep_Filestore(UA_SecurityPolicy *policy, const UA_String storePath,
+                                                const UA_ByteString localCertificate, const UA_ByteString localPrivateKey,
+                                                const UA_Logger *logger) {
+    UA_StatusCode retval =
+            UA_SecurityPolicy_Aes128Sha256RsaOaep(policy, localCertificate, localPrivateKey, logger);
+    policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_aes128sha256rsaoaep_filestore;
+    policy->clear = clear_sp_aes128sha256rsaoaep_filestore;
+
+    Aes128Sha256PsaOaep_PolicyContext *pc =
+            (Aes128Sha256PsaOaep_PolicyContext *) policy->policyContext;
+
+    Aes128Sha256PsaOaep_FilestoreContext *sc = (Aes128Sha256PsaOaep_FilestoreContext *)
+            UA_malloc(sizeof(Aes128Sha256PsaOaep_FilestoreContext));
+    pc->storeContext = (void *)sc;
+
+    memset(sc, 0, sizeof(Aes128Sha256PsaOaep_FilestoreContext));
+    UA_String_copy(&storePath, &sc->certPath);
+
+    return retval;
 }
 
 #endif

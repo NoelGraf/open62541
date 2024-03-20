@@ -149,9 +149,10 @@ UA_ServerConfig_addSecurityPolicyNone(UA_ServerConfig *config,
  * @param privateKey The private key that corresponds to the certificate.
  */
 UA_EXPORT UA_StatusCode
-UA_ServerConfig_addSecurityPolicyBasic128Rsa15(UA_ServerConfig *config,
-                                               const UA_ByteString *certificate,
-                                               const UA_ByteString *privateKey);
+UA_ServerConfig_addSecurityPolicyBasic128Rsa15_Filestore(UA_ServerConfig *config,
+                                                         const UA_String storePath,
+                                                         const UA_ByteString *certificate,
+                                                         const UA_ByteString *privateKey);
 
 /* Adds the security policy ``SecurityPolicy#Basic256`` to the server. A
  * server certificate may be supplied but is optional.
@@ -164,9 +165,10 @@ UA_ServerConfig_addSecurityPolicyBasic128Rsa15(UA_ServerConfig *config,
  * @param privateKey The private key that corresponds to the certificate.
  */
 UA_EXPORT UA_StatusCode
-UA_ServerConfig_addSecurityPolicyBasic256(UA_ServerConfig *config,
-                                          const UA_ByteString *certificate,
-                                          const UA_ByteString *privateKey);
+UA_ServerConfig_addSecurityPolicyBasic256_Filestore(UA_ServerConfig *config,
+                                                    const UA_String storePath,
+                                                    const UA_ByteString *certificate,
+                                                    const UA_ByteString *privateKey);
 
 /* Adds the security policy ``SecurityPolicy#Basic256Sha256`` to the server. A
  * server certificate may be supplied but is optional.
@@ -179,9 +181,10 @@ UA_ServerConfig_addSecurityPolicyBasic256(UA_ServerConfig *config,
  * @param privateKey The private key that corresponds to the certificate.
  */
 UA_EXPORT UA_StatusCode
-UA_ServerConfig_addSecurityPolicyBasic256Sha256(UA_ServerConfig *config,
-                                                const UA_ByteString *certificate,
-                                                const UA_ByteString *privateKey);
+UA_ServerConfig_addSecurityPolicyBasic256Sha256_Filestore(UA_ServerConfig *config,
+                                                          const UA_String storePath,
+                                                          const UA_ByteString *certificate,
+                                                          const UA_ByteString *privateKey);
 
 /* Adds the security policy ``SecurityPolicy#Aes128Sha256RsaOaep`` to the server. A
  * server certificate may be supplied but is optional.
@@ -194,9 +197,10 @@ UA_ServerConfig_addSecurityPolicyBasic256Sha256(UA_ServerConfig *config,
  * @param privateKey The private key that corresponds to the certificate.
  */
 UA_EXPORT UA_StatusCode
-UA_ServerConfig_addSecurityPolicyAes128Sha256RsaOaep(UA_ServerConfig *config,
-                                                     const UA_ByteString *certificate,
-                                                     const UA_ByteString *privateKey);
+UA_ServerConfig_addSecurityPolicyAes128Sha256RsaOaep_Filestore(UA_ServerConfig *config,
+                                                               const UA_String storePath,
+                                                               const UA_ByteString *certificate,
+                                                               const UA_ByteString *privateKey);
 
 /* Adds the security policy ``SecurityPolicy#Aes256Sha256RsaPss`` to the server. A
  * server certificate may be supplied but is optional.
@@ -209,9 +213,10 @@ UA_ServerConfig_addSecurityPolicyAes128Sha256RsaOaep(UA_ServerConfig *config,
  * @param privateKey The private key that corresponds to the certificate.
  */
 UA_EXPORT UA_StatusCode
-UA_ServerConfig_addSecurityPolicyAes256Sha256RsaPss(UA_ServerConfig *config,
-                                                    const UA_ByteString *certificate,
-                                                    const UA_ByteString *privateKey);
+UA_ServerConfig_addSecurityPolicyAes256Sha256RsaPss_Filestore(UA_ServerConfig *config,
+                                                              const UA_String storePath,
+                                                              const UA_ByteString *certificate,
+                                                              const UA_ByteString *privateKey);
 
 /* Adds all supported security policies and sets up certificate
  * validation procedures.
@@ -228,14 +233,16 @@ UA_ServerConfig_addSecurityPolicyAes256Sha256RsaPss(UA_ServerConfig *config,
  * @param revocationListSize The revocationList size.
  */
 UA_EXPORT UA_StatusCode
-UA_ServerConfig_addAllSecurityPolicies(UA_ServerConfig *config,
-                                       const UA_ByteString *certificate,
-                                       const UA_ByteString *privateKey);
+UA_ServerConfig_addAllSecurityPolicies_Filestore(UA_ServerConfig *config,
+                                                 const UA_String storePath,
+                                                 const UA_ByteString *certificate,
+                                                 const UA_ByteString *privateKey);
 
 UA_EXPORT UA_StatusCode
-UA_ServerConfig_addAllSecureSecurityPolicies(UA_ServerConfig *config,
-                                       const UA_ByteString *certificate,
-                                       const UA_ByteString *privateKey);
+UA_ServerConfig_addAllSecureSecurityPolicies_Filestore(UA_ServerConfig *config,
+                                                       const UA_String storePath,
+                                                       const UA_ByteString *certificate,
+                                                       const UA_ByteString *privateKey);
 
 #endif
 
