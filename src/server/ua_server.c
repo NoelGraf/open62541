@@ -570,6 +570,16 @@ UA_Server_updateCertificate(UA_Server *server,
     /* TODO: Report an error if the public key does not match the existing Certificate and the privateKey was not provided. */
     /* TODO: Verify that the current user has the required rights. */
 
+    for(size_t i = 0; i < server->config.securityPoliciesSize; i++) {
+        UA_SecurityPolicy *sp = &server->config.securityPolicies[i];
+        UA_CHECK_MEM(sp, return UA_STATUSCODE_BADINTERNALERROR);
+
+        if(UA_NodeId_equal(certificateTypeId, &sp->certificateTypeId)) {
+            retval = sp->updateCertificateAndPrivateKey(sp, *certificate, *privateKey);
+            if(retval != UA_STATUSCODE_GOOD)
+                return retval;
+        }
+    }
     for(size_t i = 0; i < server->config.endpointsSize; i++) {
         UA_EndpointDescription *ed = &server->config.endpoints[i];
         UA_SecurityPolicy *sp = getSecurityPolicyByUri(server, &server->config.endpoints[i].securityPolicyUri);
@@ -578,10 +588,6 @@ UA_Server_updateCertificate(UA_Server *server,
         if(UA_NodeId_equal(certificateTypeId, &sp->certificateTypeId)) {
             UA_String_clear(&ed->serverCertificate);
             UA_String_copy(certificate, &ed->serverCertificate);
-
-            retval = sp->updateCertificateAndPrivateKey(sp, *certificate, *privateKey);
-            if(retval != UA_STATUSCODE_GOOD)
-                return retval;
         }
     }
     return UA_STATUSCODE_GOOD;
