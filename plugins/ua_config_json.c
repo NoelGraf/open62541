@@ -10,6 +10,8 @@
 #include "open62541/server_config_default.h"
 #ifdef UA_ENABLE_ENCRYPTION
 #include "open62541/plugin/certificategroup_default.h"
+#include "crypto/ua_certificategroup_common.h"
+
 #endif
 
 #define MAX_TOKENS 256
@@ -708,32 +710,37 @@ PARSE_JSON(SecurityPolciesField) {
                 UA_ByteString_clear(&privateKey);
             return UA_STATUSCODE_BADINTERNALERROR;
         }
+
+        /* TODO: Currently only working for filestore backend */
+        FileCertStore *certStore = (FileCertStore*)config->secureChannelPKI.context;
+        UA_String certStorePath = UA_String_fromChars(certStore->rootDir);
+
         UA_StatusCode retval = UA_STATUSCODE_GOOD;
         if(UA_String_equal(&policy, &noneuri)) {
             /* Nothing to do! */
         } else if(UA_String_equal(&policy, &basic128Rsa15uri)) {
-            retval = UA_ServerConfig_addSecurityPolicyBasic128Rsa15(config, &certificate, &privateKey);
+            retval = UA_ServerConfig_addSecurityPolicyBasic128Rsa15_Filestore(config, certStorePath, &certificate, &privateKey);
             if(retval != UA_STATUSCODE_GOOD) {
                 UA_LOG_WARNING(config->logging, UA_LOGCATEGORY_USERLAND,
                                "Could not add SecurityPolicy#Basic128Rsa15 with error code %s",
                                UA_StatusCode_name(retval));
             }
         } else if(UA_String_equal(&policy, &basic256uri)) {
-            retval = UA_ServerConfig_addSecurityPolicyBasic256(config, &certificate, &privateKey);
+            retval = UA_ServerConfig_addSecurityPolicyBasic256_Filestore(config, certStorePath, &certificate, &privateKey);
             if(retval != UA_STATUSCODE_GOOD) {
                 UA_LOG_WARNING(config->logging, UA_LOGCATEGORY_USERLAND,
                                "Could not add SecurityPolicy#Basic256 with error code %s",
                                UA_StatusCode_name(retval));
             }
         } else if(UA_String_equal(&policy, &basic256Sha256uri)) {
-            retval = UA_ServerConfig_addSecurityPolicyBasic256Sha256(config, &certificate, &privateKey);
+            retval = UA_ServerConfig_addSecurityPolicyBasic256Sha256_Filestore(config, certStorePath, &certificate, &privateKey);
             if(retval != UA_STATUSCODE_GOOD) {
                 UA_LOG_WARNING(config->logging, UA_LOGCATEGORY_USERLAND,
                                "Could not add SecurityPolicy#Basic256Sha256 with error code %s",
                                UA_StatusCode_name(retval));
             }
         } else if(UA_String_equal(&policy, &aes128sha256rsaoaepuri)) {
-            retval = UA_ServerConfig_addSecurityPolicyAes128Sha256RsaOaep(config, &certificate, &privateKey);
+            retval = UA_ServerConfig_addSecurityPolicyAes128Sha256RsaOaep_Filestore(config, certStorePath, &certificate, &privateKey);
             if(retval != UA_STATUSCODE_GOOD) {
                 UA_LOG_WARNING(config->logging, UA_LOGCATEGORY_USERLAND,
                                "Could not add SecurityPolicy#Aes128Sha256RsaOaep with error code %s",
