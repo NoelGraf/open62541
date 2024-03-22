@@ -994,6 +994,7 @@ UA_SecurityPolicy_Basic128Rsa15(UA_SecurityPolicy *policy, const UA_ByteString l
     channelModule->compareCertificate = (UA_StatusCode (*)(const void *, const UA_ByteString *))
         channelContext_compareCertificate_sp_basic128rsa15;
 
+    policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_basic128rsa15;
     policy->createSigningRequest = createSigningRequest_sp_basic128rsa15;
     policy->clear = clear_sp_basic128rsa15;
 
@@ -1002,6 +1003,21 @@ UA_SecurityPolicy_Basic128Rsa15(UA_SecurityPolicy *policy, const UA_ByteString l
         clear_sp_basic128rsa15(policy);
 
     return res;
+}
+
+UA_StatusCode
+UA_SecurityPolicy_Basic128Rsa15_Memorystore(UA_SecurityPolicy *policy, const UA_ByteString localCertificate,
+                                            const UA_ByteString localPrivateKey, const UA_Logger *logger) {
+    UA_StatusCode retval =
+            UA_SecurityPolicy_Basic128Rsa15(policy, localCertificate, localPrivateKey, logger);
+    if(retval != UA_STATUSCODE_GOOD)
+        return retval;
+
+    Basic128Rsa15_PolicyContext *pc =
+            (Basic128Rsa15_PolicyContext *) policy->policyContext;
+    pc->storeContext = NULL;
+
+    return retval;
 }
 
 static UA_StatusCode
@@ -1050,6 +1066,8 @@ UA_SecurityPolicy_Basic128Rsa15_Filestore(UA_SecurityPolicy *policy, const UA_St
                                           const UA_Logger *logger) {
     UA_StatusCode retval =
             UA_SecurityPolicy_Basic128Rsa15(policy, localCertificate, localPrivateKey, logger);
+    if(retval != UA_STATUSCODE_GOOD)
+        return retval;
     policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_basic128rsa15_filestore;
     policy->clear = clear_sp_basic128rsa15_filestore;
 
@@ -1058,6 +1076,10 @@ UA_SecurityPolicy_Basic128Rsa15_Filestore(UA_SecurityPolicy *policy, const UA_St
 
     Basic128Rsa15_FilestoreContext *sc = (Basic128Rsa15_FilestoreContext *)
             UA_malloc(sizeof(Basic128Rsa15_FilestoreContext));
+    if(!sc) {
+        clear_sp_basic128rsa15(policy);
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
     pc->storeContext = (void *)sc;
 
     memset(sc, 0, sizeof(Basic128Rsa15_FilestoreContext));

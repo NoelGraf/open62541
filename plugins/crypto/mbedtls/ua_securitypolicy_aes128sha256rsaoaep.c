@@ -976,6 +976,7 @@ UA_SecurityPolicy_Aes128Sha256RsaOaep(UA_SecurityPolicy *policy, const UA_ByteSt
     channelModule->compareCertificate = (UA_StatusCode (*)(const void *, const UA_ByteString *))
         channelContext_compareCertificate_sp_aes128sha256rsaoaep;
 
+    policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_aes128sha256rsaoaep;
     policy->createSigningRequest = createSigningRequest_sp_aes128sha256rsaoaep;
     policy->clear = clear_sp_aes128sha256rsaoaep;
 
@@ -984,6 +985,21 @@ UA_SecurityPolicy_Aes128Sha256RsaOaep(UA_SecurityPolicy *policy, const UA_ByteSt
         clear_sp_aes128sha256rsaoaep(policy);
 
     return res;
+}
+
+UA_StatusCode
+UA_SecurityPolicy_Aes128Sha256RsaOaep_Memorystore(UA_SecurityPolicy *policy, const UA_ByteString localCertificate,
+                                                const UA_ByteString localPrivateKey, const UA_Logger *logger) {
+    UA_StatusCode retval =
+            UA_SecurityPolicy_Aes128Sha256RsaOaep(policy, localCertificate, localPrivateKey, logger);
+    if(retval != UA_STATUSCODE_GOOD)
+        return retval;
+
+    Aes128Sha256PsaOaep_PolicyContext *pc =
+            (Aes128Sha256PsaOaep_PolicyContext *) policy->policyContext;
+    pc->storeContext = NULL;
+
+    return retval;
 }
 
 static UA_StatusCode
@@ -1032,6 +1048,8 @@ UA_SecurityPolicy_Aes128Sha256RsaOaep_Filestore(UA_SecurityPolicy *policy, const
                                                 const UA_Logger *logger) {
     UA_StatusCode retval =
             UA_SecurityPolicy_Aes128Sha256RsaOaep(policy, localCertificate, localPrivateKey, logger);
+    if(retval != UA_STATUSCODE_GOOD)
+        return retval;
     policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_aes128sha256rsaoaep_filestore;
     policy->clear = clear_sp_aes128sha256rsaoaep_filestore;
 
@@ -1040,6 +1058,10 @@ UA_SecurityPolicy_Aes128Sha256RsaOaep_Filestore(UA_SecurityPolicy *policy, const
 
     Aes128Sha256PsaOaep_FilestoreContext *sc = (Aes128Sha256PsaOaep_FilestoreContext *)
             UA_malloc(sizeof(Aes128Sha256PsaOaep_FilestoreContext));
+    if(!sc) {
+        clear_sp_aes128sha256rsaoaep(policy);
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
     pc->storeContext = (void *)sc;
 
     memset(sc, 0, sizeof(Aes128Sha256PsaOaep_FilestoreContext));

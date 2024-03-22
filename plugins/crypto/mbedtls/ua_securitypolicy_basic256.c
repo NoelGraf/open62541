@@ -924,6 +924,7 @@ UA_SecurityPolicy_Basic256(UA_SecurityPolicy *policy, const UA_ByteString localC
     channelModule->compareCertificate = (UA_StatusCode (*)(const void *, const UA_ByteString *))
         channelContext_compareCertificate_sp_basic256;
 
+    policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_basic256;
     policy->createSigningRequest = createSigningRequest_sp_basic256;
     policy->clear = clear_sp_basic256;
 
@@ -932,6 +933,21 @@ UA_SecurityPolicy_Basic256(UA_SecurityPolicy *policy, const UA_ByteString localC
         clear_sp_basic256(policy);
 
     return res;
+}
+
+UA_StatusCode
+UA_SecurityPolicy_Basic256_Memorystore(UA_SecurityPolicy *policy, const UA_ByteString localCertificate,
+                                       const UA_ByteString localPrivateKey, const UA_Logger *logger) {
+    UA_StatusCode retval =
+            UA_SecurityPolicy_Basic256(policy, localCertificate, localPrivateKey, logger);
+    if(retval != UA_STATUSCODE_GOOD)
+        return retval;
+
+    Basic256_PolicyContext *pc =
+            (Basic256_PolicyContext *) policy->policyContext;
+    pc->storeContext = NULL;
+
+    return retval;
 }
 
 static UA_StatusCode
@@ -980,6 +996,8 @@ UA_SecurityPolicy_Basic256_Filestore(UA_SecurityPolicy *policy, const UA_String 
                                      const UA_Logger *logger) {
     UA_StatusCode retval =
             UA_SecurityPolicy_Basic256(policy, localCertificate, localPrivateKey, logger);
+    if(retval != UA_STATUSCODE_GOOD)
+        return retval;
     policy->updateCertificateAndPrivateKey = updateCertificateAndPrivateKey_sp_basic256_filestore;
     policy->clear = clear_sp_basic256_filestore;
 
@@ -988,6 +1006,10 @@ UA_SecurityPolicy_Basic256_Filestore(UA_SecurityPolicy *policy, const UA_String 
 
     Basic256_FilestoreContext *sc = (Basic256_FilestoreContext *)
             UA_malloc(sizeof(Basic256_FilestoreContext));
+    if(!sc) {
+        clear_sp_basic256(policy);
+        return UA_STATUSCODE_BADOUTOFMEMORY;
+    }
     pc->storeContext = (void *)sc;
 
     memset(sc, 0, sizeof(Basic256_FilestoreContext));

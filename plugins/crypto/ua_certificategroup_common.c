@@ -135,7 +135,9 @@ deleteFileFromFilestore(char *path, const UA_ByteString oldCertificate, const UA
                     return retval;
                 }
                 if (UA_ByteString_equal(&oldCertificate, &fileData)) {
-                    if(numCerts > 1) {
+                    size_t keySize = 0;
+                    UA_CertificateUtils_getKeySize((UA_ByteString*)(uintptr_t)&oldCertificate, &keySize);
+                    if(numCerts > 1 || (numCerts == 1 && (keySize > 256 || keySize == 128))) {
                         if (remove(filename) != 0) {
                             closedir(dir);
                             UA_ByteString_clear(&fileData);
@@ -216,8 +218,11 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
     if(newPrivateKey.length == 0 || fileDeleted) {
         size_t tmpLen = strlen(keyFilePath) + strlen(matchedFilename) + 6;
         tmp = (char *)UA_malloc(tmpLen);
-        if(!tmp)
+        if(!tmp) {
+            UA_free(matchedFilename);
+            UA_free(keyFilePath);
             return UA_STATUSCODE_BADOUTOFMEMORY;
+        }
         memset(tmp, 0, tmpLen);
         strncpy(tmp, keyFilePath, strlen(keyFilePath));
         strncat(tmp, "/", 2);

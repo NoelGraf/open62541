@@ -1531,10 +1531,6 @@ UA_ClientConfig_setAuthenticationCert(UA_ClientConfig *config,
     config->userIdentityToken.content.decoded.type = &UA_TYPES[UA_TYPES_X509IDENTITYTOKEN];
     config->userIdentityToken.content.decoded.data = identityToken;
 
-    /* get the actual store path */
-    FileCertStore *certStore = (FileCertStore*)config->certificateVerification.context;
-    UA_String certStorePath = UA_String_fromChars(certStore->rootDir);
-
     /* Populate SecurityPolicies */
     UA_SecurityPolicy *sp = (UA_SecurityPolicy*)
         UA_realloc(config->authSecurityPolicies, sizeof(UA_SecurityPolicy) * 5);
@@ -1542,8 +1538,8 @@ UA_ClientConfig_setAuthenticationCert(UA_ClientConfig *config,
         return UA_STATUSCODE_BADOUTOFMEMORY;
     config->authSecurityPolicies = sp;
 
-    retval = UA_SecurityPolicy_Basic128Rsa15_Filestore(&config->authSecurityPolicies[config->authSecurityPoliciesSize],
-                                                       certStorePath, certificateAuth, privateKeyAuth, config->logging);
+    retval = UA_SecurityPolicy_Basic128Rsa15_Memorystore(&config->authSecurityPolicies[config->authSecurityPoliciesSize],
+                                                         certificateAuth, privateKeyAuth, config->logging);
     if(retval == UA_STATUSCODE_GOOD) {
         ++config->authSecurityPoliciesSize;
     } else {
@@ -1552,8 +1548,8 @@ UA_ClientConfig_setAuthenticationCert(UA_ClientConfig *config,
                        UA_StatusCode_name(retval));
     }
 
-    retval = UA_SecurityPolicy_Basic256_Filestore(&config->authSecurityPolicies[config->authSecurityPoliciesSize],
-                                                  certStorePath, certificateAuth, privateKeyAuth, config->logging);
+    retval = UA_SecurityPolicy_Basic256_Memorystore(&config->authSecurityPolicies[config->authSecurityPoliciesSize],
+                                                    certificateAuth, privateKeyAuth, config->logging);
     if(retval == UA_STATUSCODE_GOOD) {
         ++config->authSecurityPoliciesSize;
     } else {
@@ -1562,8 +1558,8 @@ UA_ClientConfig_setAuthenticationCert(UA_ClientConfig *config,
                        UA_StatusCode_name(retval));
     }
 
-    retval = UA_SecurityPolicy_Aes256Sha256RsaPss_Filestore(&config->authSecurityPolicies[config->authSecurityPoliciesSize],
-                                                            certStorePath, certificateAuth, privateKeyAuth, config->logging);
+    retval = UA_SecurityPolicy_Aes256Sha256RsaPss_Memorystore(&config->authSecurityPolicies[config->authSecurityPoliciesSize],
+                                                              certificateAuth, privateKeyAuth, config->logging);
     if(retval == UA_STATUSCODE_GOOD) {
         ++config->authSecurityPoliciesSize;
     } else {
@@ -1572,8 +1568,8 @@ UA_ClientConfig_setAuthenticationCert(UA_ClientConfig *config,
                        UA_StatusCode_name(retval));
     }
 
-    retval = UA_SecurityPolicy_Basic256Sha256_Filestore(&config->authSecurityPolicies[config->authSecurityPoliciesSize],
-                                                        certStorePath, certificateAuth, privateKeyAuth, config->logging);
+    retval = UA_SecurityPolicy_Basic256Sha256_Memorystore(&config->authSecurityPolicies[config->authSecurityPoliciesSize],
+                                                          certificateAuth, privateKeyAuth, config->logging);
     if(retval == UA_STATUSCODE_GOOD) {
         ++config->authSecurityPoliciesSize;
     } else {
@@ -1582,8 +1578,8 @@ UA_ClientConfig_setAuthenticationCert(UA_ClientConfig *config,
                        UA_StatusCode_name(retval));
     }
 
-    retval = UA_SecurityPolicy_Aes128Sha256RsaOaep_Filestore(&config->authSecurityPolicies[config->authSecurityPoliciesSize],
-                                                             certStorePath, certificateAuth, privateKeyAuth, config->logging);
+    retval = UA_SecurityPolicy_Aes128Sha256RsaOaep_Memorystore(&config->authSecurityPolicies[config->authSecurityPoliciesSize],
+                                                               certificateAuth, privateKeyAuth, config->logging);
     if(retval == UA_STATUSCODE_GOOD) {
         ++config->authSecurityPoliciesSize;
     } else {
