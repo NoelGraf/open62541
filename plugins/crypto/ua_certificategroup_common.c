@@ -159,31 +159,35 @@ UA_StatusCode
 writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_ByteString oldCertificate,
                                          const UA_ByteString newCertificate, const UA_ByteString newPrivateKey) {
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
+    char *ownCertFilePath = NULL;
+    char *ownKeyFilePath = NULL;
+    char *matchedFilename  = NULL;
+    char *oldKeyFilePath = NULL;
 
     /* Certificate handling */
     char *ownCertPath = "/own/certs";
     size_t ownCertPathLen = strlen(ownCertPath);
 
-    size_t certFilePathLen = storePath.length + ownCertPathLen + 1;
-    char *certFilePath = (char*)UA_malloc(certFilePathLen);
-    if(!certFilePath) {
+    size_t ownCertFilePathLen = storePath.length + ownCertPathLen + 1;
+    ownCertFilePath = (char*)UA_malloc(ownCertFilePathLen);
+    if(!ownCertFilePath) {
         retval = UA_STATUSCODE_BADOUTOFMEMORY;
         goto cleanup;
     }
-    memcpy(certFilePath, storePath.data, storePath.length);
-    memcpy(certFilePath + storePath.length, ownCertPath, ownCertPathLen);
-    certFilePath[certFilePathLen - 1] = '\0';
+    memcpy(ownCertFilePath, storePath.data, storePath.length);
+    memcpy(ownCertFilePath + storePath.length, ownCertPath, ownCertPathLen);
+    ownCertFilePath[ownCertFilePathLen - 1] = '\0';
 
-    char certFilename[FILENAME_MAX];
-    retval = getCertFileName(certFilePath, &newCertificate, certFilename, FILENAME_MAX - 5);
+    /* Create name for new certificate */
+    char newCertFilename[FILENAME_MAX];
+    retval = getCertFileName(ownCertFilePath, &newCertificate, newCertFilename, FILENAME_MAX - 5);
     if(retval != UA_STATUSCODE_GOOD) {
         goto cleanup;
     }
-    strncat(certFilename, ".der", 5);
+    strncat(newCertFilename, ".der", 5);
 
-    char *matchedFilename  = NULL;
-    bool fileDeleted = false;
-    retval = deleteFileFromFilestore(certFilePath, oldCertificate, newCertificate, &matchedFilename, &fileDeleted);
+    bool isOldCertFileDeleted = false;
+    retval = deleteFileFromFilestore(ownCertFilePath, oldCertificate, newCertificate, &matchedFilename, &isOldCertFileDeleted);
     if(retval != UA_STATUSCODE_GOOD) {
         goto cleanup;
     }
@@ -191,10 +195,10 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
     /* The old certificate could not be found in the file system.
      * Already updated. */
     if(!matchedFilename) {
-        return UA_STATUSCODE_GOOD;
+        goto cleanup;
     }
 
-    retval = writeByteStringToFile(certFilename, &newCertificate);
+    retval = writeByteStringToFile(newCertFilename, &newCertificate);
     if(retval != UA_STATUSCODE_GOOD) {
         goto cleanup;
     }
@@ -203,32 +207,31 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
     char *ownKeyPath = "/own/private";
     size_t ownKeyPathLen = strlen(ownKeyPath);
 
-    size_t keyFilePathLen = storePath.length + ownKeyPathLen + 1;
-    char *keyFilePath = (char*)UA_malloc(keyFilePathLen);
-    if(!keyFilePath) {
+    size_t ownKeyFilePathLen = storePath.length + ownKeyPathLen + 1;
+    ownKeyFilePath = (char*)UA_malloc(ownKeyFilePathLen);
+    if(!ownKeyFilePath) {
         retval = UA_STATUSCODE_BADOUTOFMEMORY;
         goto cleanup;
     }
-    memcpy(keyFilePath, storePath.data, storePath.length);
-    memcpy(keyFilePath + storePath.length, ownKeyPath, ownKeyPathLen);
-    keyFilePath[keyFilePathLen - 1] = '\0';
+    memcpy(ownKeyFilePath, storePath.data, storePath.length);
+    memcpy(ownKeyFilePath + storePath.length, ownKeyPath, ownKeyPathLen);
+    ownKeyFilePath[ownKeyFilePathLen - 1] = '\0';
 
-    char keyFilename[FILENAME_MAX];
-    retval = getCertFileName(keyFilePath, &newCertificate, keyFilename, FILENAME_MAX - 5);
+    char newKeyFilename[FILENAME_MAX];
+    retval = getCertFileName(ownKeyFilePath, &newCertificate, newKeyFilename, FILENAME_MAX - 5);
     if(retval != UA_STATUSCODE_GOOD) {
         goto cleanup;
     }
-    strncat(keyFilename, ".key", 5);
+    strncat(newKeyFilename, ".key", 5);
 
-    char *tmp = NULL;
-    if(newPrivateKey.length == 0 || fileDeleted) {
-        size_t tmpLen = strlen(keyFilePath) + strlen(matchedFilename) + 6;
-        tmp = (char *)UA_malloc(tmpLen);
-        if(!tmp) {
+    if(newPrivateKey.length == 0 || isOldCertFileDeleted) {
+        size_t tmpLen = strlen(ownKeyFilePath) + strlen(matchedFilename) + 6;
+        oldKeyFilePath = (char *)UA_malloc(tmpLen);
+        if(!oldKeyFilePath) {
             retval = UA_STATUSCODE_BADOUTOFMEMORY;
             goto cleanup;
         }
-        if(snprintf(tmp, tmpLen, "%s%s%s%s", keyFilePath, "/", matchedFilename, ".key") < 0) {
+        if(snprintf(oldKeyFilePath, tmpLen, "%s%s%s%s", ownKeyFilePath, "/", matchedFilename, ".key") < 0) {
             retval = UA_STATUSCODE_BADINTERNALERROR;
             goto cleanup;
         }
@@ -238,31 +241,31 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
     if(newPrivateKey.length > 0) {
         newKeyData = newPrivateKey;
     } else {
-        retval = readFileToByteString(tmp, &newKeyData);
+        retval = readFileToByteString(oldKeyFilePath, &newKeyData);
         if(retval != UA_STATUSCODE_GOOD) {
             goto cleanup;
         }
     }
-    retval = writeByteStringToFile(keyFilename, &newKeyData);
+    retval = writeByteStringToFile(newKeyFilename, &newKeyData);
     if(retval != UA_STATUSCODE_GOOD) {
         goto cleanup;
     }
-    if(fileDeleted) {
-        if(remove(tmp) != 0) {
+    if(isOldCertFileDeleted) {
+        if(remove(oldKeyFilePath) != 0) {
             retval = UA_STATUSCODE_BADINTERNALERROR;
             goto cleanup;
         }
     }
 
 cleanup:
-    if(tmp)
-        UA_free(tmp);
+    if(oldKeyFilePath)
+        UA_free(oldKeyFilePath);
     if(matchedFilename)
         UA_free(matchedFilename);
-    if(keyFilePath)
-        UA_free(keyFilePath);
-    if(certFilePath)
-        UA_free(certFilePath);
+    if(ownKeyFilePath)
+        UA_free(ownKeyFilePath);
+    if(ownCertFilePath)
+        UA_free(ownCertFilePath);
 
     return retval;
 }
