@@ -164,10 +164,11 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
     char *ownCertPath = "/own/certs";
     size_t ownCertPathLen = strlen(ownCertPath);
 
-    char *certFilePath = (char*)UA_malloc(storePath.length + ownCertPathLen + 1);
+    size_t certFilePathLen = storePath.length + ownCertPathLen + 1;
+    char *certFilePath = (char*)UA_malloc(certFilePathLen);
     memcpy(certFilePath, storePath.data, storePath.length);
     memcpy(certFilePath + storePath.length, ownCertPath, ownCertPathLen);
-    certFilePath[storePath.length + ownCertPathLen] = '\0';
+    certFilePath[certFilePathLen - 1] = '\0';
 
     char certFilename[FILENAME_MAX];
     retval = getCertFileName(certFilePath, &newCertificate, certFilename, FILENAME_MAX - 5);
@@ -223,11 +224,12 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
             UA_free(keyFilePath);
             return UA_STATUSCODE_BADOUTOFMEMORY;
         }
-        memset(tmp, 0, tmpLen);
-        strncpy(tmp, keyFilePath, strlen(keyFilePath));
-        strncat(tmp, "/", 2);
-        strncat(tmp, matchedFilename, strlen(matchedFilename));
-        strncat(tmp, ".key", 5);
+        if(snprintf(tmp, tmpLen, "%s%s%s%s", keyFilePath, "/", matchedFilename, ".key") < 0) {
+            UA_free(tmp);
+            UA_free(matchedFilename);
+            UA_free(keyFilePath);
+            return UA_STATUSCODE_BADINTERNALERROR;
+        }
     }
 
     UA_ByteString newKeyData;

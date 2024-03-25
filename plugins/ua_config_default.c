@@ -1105,6 +1105,8 @@ UA_ServerConfig_setDefaultWithSecurityPolicies(UA_ServerConfig *conf,
 
     retval = UA_ServerConfig_addAllSecurityPolicies_Filestore(conf, certStorePath, certificate, privateKey);
 
+    UA_String_clear(&certStorePath);
+
     if(retval == UA_STATUSCODE_GOOD) {
         retval = UA_AccessControl_default(conf, true, NULL, 0, NULL);
     }
@@ -1407,10 +1409,6 @@ UA_ClientConfig_setDefaultEncryption(UA_ClientConfig *config,
 
     config->certificateVerification.setTrustList(&config->certificateVerification, &trustListTmp);
 
-    /* get the actual store path */
-    FileCertStore *certStore = (FileCertStore*)config->certificateVerification.context;
-    UA_String certStorePath = UA_String_fromChars(certStore->rootDir);
-
     /* Populate SecurityPolicies */
     UA_SecurityPolicy *sp = (UA_SecurityPolicy*)
         UA_realloc(config->securityPolicies, sizeof(UA_SecurityPolicy) * SECURITY_POLICY_SIZE);
@@ -1443,6 +1441,10 @@ UA_ClientConfig_setDefaultEncryption(UA_ClientConfig *config,
     }
     if(keySuccess != UA_STATUSCODE_GOOD)
         return keySuccess;
+
+    /* get the actual store path */
+    FileCertStore *certStore = (FileCertStore*)config->certificateVerification.context;
+    UA_String certStorePath = UA_String_fromChars(certStore->rootDir);
 
     retval = UA_SecurityPolicy_Basic128Rsa15_Filestore(&config->securityPolicies[config->securityPoliciesSize],
                                                        certStorePath, localCertificate, decryptedPrivateKey, config->logging);
@@ -1497,6 +1499,7 @@ UA_ClientConfig_setDefaultEncryption(UA_ClientConfig *config,
 
     UA_ByteString_memZero(&decryptedPrivateKey);
     UA_ByteString_clear(&decryptedPrivateKey);
+    UA_DateString_clear(&certStorePath);
 
     if(config->securityPoliciesSize == 0) {
         UA_free(config->securityPolicies);
