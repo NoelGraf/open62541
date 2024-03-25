@@ -166,6 +166,10 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
 
     size_t certFilePathLen = storePath.length + ownCertPathLen + 1;
     char *certFilePath = (char*)UA_malloc(certFilePathLen);
+    if(!certFilePath) {
+        retval = UA_STATUSCODE_BADOUTOFMEMORY;
+        goto cleanup;
+    }
     memcpy(certFilePath, storePath.data, storePath.length);
     memcpy(certFilePath + storePath.length, ownCertPath, ownCertPathLen);
     certFilePath[certFilePathLen - 1] = '\0';
@@ -173,8 +177,7 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
     char certFilename[FILENAME_MAX];
     retval = getCertFileName(certFilePath, &newCertificate, certFilename, FILENAME_MAX - 5);
     if(retval != UA_STATUSCODE_GOOD) {
-        UA_free(certFilePath);
-        return retval;
+        goto cleanup;
     }
     strncat(certFilename, ".der", 5);
 
@@ -182,10 +185,8 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
     bool fileDeleted = false;
     retval = deleteFileFromFilestore(certFilePath, oldCertificate, newCertificate, &matchedFilename, &fileDeleted);
     if(retval != UA_STATUSCODE_GOOD) {
-        UA_free(certFilePath);
-        return retval;
+        goto cleanup;
     }
-    UA_free(certFilePath);
 
     /* The old certificate could not be found in the file system.
      * Already updated. */
@@ -194,24 +195,28 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
     }
 
     retval = writeByteStringToFile(certFilename, &newCertificate);
-    if (retval != UA_STATUSCODE_GOOD) {
-        return retval;
+    if(retval != UA_STATUSCODE_GOOD) {
+        goto cleanup;
     }
 
     /* Private key handling */
     char *ownKeyPath = "/own/private";
     size_t ownKeyPathLen = strlen(ownKeyPath);
 
-    char *keyFilePath = (char*)UA_malloc(storePath.length + ownKeyPathLen + 1);
+    size_t keyFilePathLen = storePath.length + ownKeyPathLen + 1;
+    char *keyFilePath = (char*)UA_malloc(keyFilePathLen);
+    if(!keyFilePath) {
+        retval = UA_STATUSCODE_BADOUTOFMEMORY;
+        goto cleanup;
+    }
     memcpy(keyFilePath, storePath.data, storePath.length);
     memcpy(keyFilePath + storePath.length, ownKeyPath, ownKeyPathLen);
-    keyFilePath[storePath.length + ownKeyPathLen] = '\0';
+    keyFilePath[keyFilePathLen - 1] = '\0';
 
     char keyFilename[FILENAME_MAX];
     retval = getCertFileName(keyFilePath, &newCertificate, keyFilename, FILENAME_MAX - 5);
     if(retval != UA_STATUSCODE_GOOD) {
-        UA_free(keyFilePath);
-        return retval;
+        goto cleanup;
     }
     strncat(keyFilename, ".key", 5);
 
@@ -220,15 +225,12 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
         size_t tmpLen = strlen(keyFilePath) + strlen(matchedFilename) + 6;
         tmp = (char *)UA_malloc(tmpLen);
         if(!tmp) {
-            UA_free(matchedFilename);
-            UA_free(keyFilePath);
-            return UA_STATUSCODE_BADOUTOFMEMORY;
+            retval = UA_STATUSCODE_BADOUTOFMEMORY;
+            goto cleanup;
         }
         if(snprintf(tmp, tmpLen, "%s%s%s%s", keyFilePath, "/", matchedFilename, ".key") < 0) {
-            UA_free(tmp);
-            UA_free(matchedFilename);
-            UA_free(keyFilePath);
-            return UA_STATUSCODE_BADINTERNALERROR;
+            retval = UA_STATUSCODE_BADINTERNALERROR;
+            goto cleanup;
         }
     }
 
@@ -238,35 +240,31 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
     } else {
         retval = readFileToByteString(tmp, &newKeyData);
         if(retval != UA_STATUSCODE_GOOD) {
-            UA_free(tmp);
-            return retval;
+            goto cleanup;
         }
     }
     retval = writeByteStringToFile(keyFilename, &newKeyData);
     if(retval != UA_STATUSCODE_GOOD) {
-        if(tmp)
-            UA_free(tmp);
-        else {
-            UA_free(matchedFilename);
-        }
-        return retval;
+        goto cleanup;
     }
     if(fileDeleted) {
         if(remove(tmp) != 0) {
-            UA_free(tmp);
-            return UA_STATUSCODE_BADINTERNALERROR;
+            retval = UA_STATUSCODE_BADINTERNALERROR;
+            goto cleanup;
         }
     }
 
-    if(tmp) {
+cleanup:
+    if(tmp)
         UA_free(tmp);
+    if(matchedFilename)
         UA_free(matchedFilename);
-    } else {
-        UA_free(matchedFilename);
-    }
-    UA_free(keyFilePath);
+    if(keyFilePath)
+        UA_free(keyFilePath);
+    if(certFilePath)
+        UA_free(certFilePath);
 
-    return UA_STATUSCODE_GOOD;
+    return retval;
 }
 
 static UA_StatusCode

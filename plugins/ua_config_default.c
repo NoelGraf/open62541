@@ -1499,7 +1499,7 @@ UA_ClientConfig_setDefaultEncryption(UA_ClientConfig *config,
 
     UA_ByteString_memZero(&decryptedPrivateKey);
     UA_ByteString_clear(&decryptedPrivateKey);
-    UA_DateString_clear(&certStorePath);
+    UA_String_clear(&certStorePath);
 
     if(config->securityPoliciesSize == 0) {
         UA_free(config->securityPolicies);
