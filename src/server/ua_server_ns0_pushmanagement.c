@@ -440,13 +440,13 @@ openTrustList(UA_Server *server,
         return retval;
     }
 
-    if(fileOpenMode & UA_OPENFILEMODE_READ) {
+    if(fileOpenMode == UA_OPENFILEMODE_READ) {
         UA_FileContext *fileContextTmp = NULL;
         LIST_FOREACH(fileContextTmp, &fileInfo->fileContext, listEntry) {
             if(fileContextTmp->openFileMode & (UA_OPENFILEMODE_WRITE | UA_OPENFILEMODE_ERASEEXISTING))
                 retval = UA_STATUSCODE_BADNOTREADABLE;
         }
-    } else if(fileOpenMode & (UA_OPENFILEMODE_WRITE | UA_OPENFILEMODE_ERASEEXISTING)) {
+    } else if(fileOpenMode == (UA_OPENFILEMODE_WRITE | UA_OPENFILEMODE_ERASEEXISTING)) {
         if(fileInfo->openCount != 0)
             retval = UA_STATUSCODE_BADNOTWRITABLE;
     } else {
@@ -480,6 +480,10 @@ openTrustListWithMask(UA_Server *server,
                       size_t outputSize, UA_Variant *output) {
 
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
+
+    UA_LOCK(&server->serviceMutex);
+    UA_Session *session = getSessionById(server, sessionId);
+    UA_UNLOCK(&server->serviceMutex);
 
     /*check for input types*/
     if(!UA_Variant_hasScalarType(&input[0], &UA_TYPES[UA_TYPES_UINT32])) /*Mask*/
@@ -667,8 +671,7 @@ writeTrustList(UA_Server *server,
     /* TODO: 1. Get current trust list 2. Write current trust list 3. Save the edited list in the transaction object. */
 
     /* TODO: Currently added directly, later this should be added after called closeAndUpdate function. */
-    /* TODO: Replace the specified part of the trust list */
-    retval = certGroup->addToTrustList(certGroup, &trustList);
+    retval = certGroup->setTrustList(certGroup, &trustList);
 
     return retval;
 }
@@ -713,6 +716,20 @@ closeTrustList(UA_Server *server,
         certGroup->applicationContext = NULL;
     }
 
+    return retval;
+}
+
+static UA_StatusCode
+closeAndUpdateTrustList(UA_Server *server,
+               const UA_NodeId *sessionId, void *sessionHandle,
+               const UA_NodeId *methodId, void *methodContext,
+               const UA_NodeId *objectId, void *objectContext,
+               size_t inputSize, const UA_Variant *input,
+               size_t outputSize, UA_Variant *output) {
+    /* TODO: The function currently only calls close. This will change when transactions are implemented. */
+    UA_StatusCode retval =
+            closeTrustList(server, sessionId, sessionHandle, methodId, methodContext,
+                           objectId, objectContext, inputSize, input, outputSize, output);
     return retval;
 }
 
@@ -863,22 +880,23 @@ initNS0PushManagement(UA_Server *server) {
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATIONTYPE_APPLYCHANGES), applyChanges);
 
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_ADDCERTIFICATE), addCertificate);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_ADDCERTIFICATE), addCertificate);
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE_ADDCERTIFICATE), addCertificate);
 
-    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_ADDCERTIFICATE), addCertificate);
-
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_REMOVECERTIFICATE), removeCertificate);
-    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE_REMOVECERTIFICATE), removeCertificate);
-
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_ADDCERTIFICATE), removeCertificate);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE_REMOVECERTIFICATE), removeCertificate);
 
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_OPEN), openTrustList);
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_OPEN), openTrustList);
 
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_OPENWITHMASKS), openTrustListWithMask);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_OPENWITHMASKS), openTrustListWithMask);
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE_OPENWITHMASKS), openTrustListWithMask);
 
-    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_OPENWITHMASKS), openTrustListWithMask);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_CLOSEANDUPDATE), closeAndUpdateTrustList);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_CLOSEANDUPDATE), closeAndUpdateTrustList);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE_CLOSEANDUPDATE), closeAndUpdateTrustList);
 
 
     retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_READ),true);
@@ -901,6 +919,7 @@ initNS0PushManagement(UA_Server *server) {
                      UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
                      UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_WRITE), true);
 
+    /* Close */
     retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_CLOSE),true);
     retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
                      UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
@@ -911,6 +930,7 @@ initNS0PushManagement(UA_Server *server) {
                      UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
                      UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_CLOSE), true);
 
+    /* GetPosition */
     retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_GETPOSITION),true);
     retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
                      UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
@@ -921,6 +941,7 @@ initNS0PushManagement(UA_Server *server) {
                      UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
                      UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_GETPOSITION), true);
 
+    /* SetPosition */
     retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_SETPOSITION),true);
     retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
                      UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
