@@ -558,11 +558,19 @@ UA_Server_updateCertificate(UA_Server *server,
     if(!UA_NodeId_equal(certificateGroupId, &defaultApplicationGroup))
         return UA_STATUSCODE_BADINVALIDARGUMENT;
 
+    /* The server currently only supports the following certificate types */
+    UA_NodeId certTypRsaMin = UA_NODEID_NUMERIC(0, UA_NS0ID_RSAMINAPPLICATIONCERTIFICATETYPE);
+    UA_NodeId certTypRsaSha256 = UA_NODEID_NUMERIC(0, UA_NS0ID_RSASHA256APPLICATIONCERTIFICATETYPE);
+    if(!UA_NodeId_equal(certificateTypeId, &certTypRsaMin) ||
+       !UA_NodeId_equal(certificateTypeId, &certTypRsaSha256))
+        return UA_STATUSCODE_BADINVALIDARGUMENT;
+
     UA_CertificateGroup certGroup = server->config.secureChannelPKI;
 
     if(!UA_NodeId_equal(&certGroup.certificateGroupId, &defaultApplicationGroup))
         return UA_STATUSCODE_BADINTERNALERROR;
 
+    /* TODO: Do not call verifyCertificate, but check whether the certificate chain is valid, not that it is trusted. */
     if(certGroup.verifyCertificate(&certGroup, certificate, issuerCertificates, issuerCertificatesSize) != UA_STATUSCODE_GOOD) {
         return UA_STATUSCODE_BADSECURITYCHECKSFAILED;
     }

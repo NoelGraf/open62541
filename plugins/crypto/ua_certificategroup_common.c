@@ -247,6 +247,7 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
         }
     }
     retval = writeByteStringToFile(newKeyFilename, &newKeyData);
+    UA_ByteString_clear(&newKeyData);
     if(retval != UA_STATUSCODE_GOOD) {
         goto cleanup;
     }
