@@ -481,10 +481,6 @@ openTrustListWithMask(UA_Server *server,
 
     UA_StatusCode retval = UA_STATUSCODE_GOOD;
 
-    UA_LOCK(&server->serviceMutex);
-    UA_Session *session = getSessionById(server, sessionId);
-    UA_UNLOCK(&server->serviceMutex);
-
     /*check for input types*/
     if(!UA_Variant_hasScalarType(&input[0], &UA_TYPES[UA_TYPES_UINT32])) /*Mask*/
         return UA_STATUSCODE_BADTYPEMISMATCH;

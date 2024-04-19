@@ -239,7 +239,7 @@ writeCertificateAndPrivateKeyToFilestore(const UA_String storePath, const UA_Byt
 
     UA_ByteString newKeyData;
     if(newPrivateKey.length > 0) {
-        newKeyData = newPrivateKey;
+        UA_ByteString_copy(&newPrivateKey, &newKeyData);
     } else {
         retval = readFileToByteString(oldKeyFilePath, &newKeyData);
         if(retval != UA_STATUSCODE_GOOD) {
