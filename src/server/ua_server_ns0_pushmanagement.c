@@ -853,6 +853,138 @@ writeGroupVariables(UA_Server *server) {
     return retval;
 }
 
+static UA_StatusCode
+openFile(UA_Server *server,
+         const UA_NodeId *sessionId, void *sessionHandle,
+         const UA_NodeId *methodId, void *methodContext,
+         const UA_NodeId *objectId, void *objectContext,
+         size_t inputSize, const UA_Variant *input,
+         size_t outputSize, UA_Variant *output) {
+
+    const UA_Node *object = UA_NODESTORE_GET(server, objectId);
+    const UA_Node *objectType = getNodeType(server, &object->head);
+
+    UA_NodeId trustListType = UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE);
+    if(UA_NodeId_equal(&objectType->head.nodeId, &trustListType)) {
+        return openTrustList(server, sessionId, sessionHandle, methodId, methodContext, objectId, objectContext,
+                             inputSize, input, outputSize, output);
+    }
+
+    UA_LOG_ERROR(server->config.logging, UA_LOGCATEGORY_SERVER,
+                 "File type functions are currently only supported for TrustList types");
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
+}
+
+static UA_StatusCode
+readFile(UA_Server *server,
+         const UA_NodeId *sessionId, void *sessionHandle,
+         const UA_NodeId *methodId, void *methodContext,
+         const UA_NodeId *objectId, void *objectContext,
+         size_t inputSize, const UA_Variant *input,
+         size_t outputSize, UA_Variant *output) {
+
+    const UA_Node *object = UA_NODESTORE_GET(server, objectId);
+    const UA_Node *objectType = getNodeType(server, &object->head);
+
+    UA_NodeId trustListType = UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE);
+    if(UA_NodeId_equal(&objectType->head.nodeId, &trustListType)) {
+        return readTrustList(server, sessionId, sessionHandle, methodId, methodContext, objectId, objectContext,
+                             inputSize, input, outputSize, output);
+    }
+
+    UA_LOG_ERROR(server->config.logging, UA_LOGCATEGORY_SERVER,
+                         "File type functions are currently only supported for TrustList types");
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
+}
+
+static UA_StatusCode
+writeFile(UA_Server *server,
+         const UA_NodeId *sessionId, void *sessionHandle,
+         const UA_NodeId *methodId, void *methodContext,
+         const UA_NodeId *objectId, void *objectContext,
+         size_t inputSize, const UA_Variant *input,
+         size_t outputSize, UA_Variant *output) {
+
+    const UA_Node *object = UA_NODESTORE_GET(server, objectId);
+    const UA_Node *objectType = getNodeType(server, &object->head);
+
+    UA_NodeId trustListType = UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE);
+    if(UA_NodeId_equal(&objectType->head.nodeId, &trustListType)) {
+        return writeTrustList(server, sessionId, sessionHandle, methodId, methodContext, objectId, objectContext,
+                             inputSize, input, outputSize, output);
+    }
+
+    UA_LOG_ERROR(server->config.logging, UA_LOGCATEGORY_SERVER,
+                 "File type functions are currently only supported for TrustList types");
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
+}
+
+static UA_StatusCode
+closeFile(UA_Server *server,
+         const UA_NodeId *sessionId, void *sessionHandle,
+         const UA_NodeId *methodId, void *methodContext,
+         const UA_NodeId *objectId, void *objectContext,
+         size_t inputSize, const UA_Variant *input,
+         size_t outputSize, UA_Variant *output) {
+
+    const UA_Node *object = UA_NODESTORE_GET(server, objectId);
+    const UA_Node *objectType = getNodeType(server, &object->head);
+
+    UA_NodeId trustListType = UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE);
+    if(UA_NodeId_equal(&objectType->head.nodeId, &trustListType)) {
+        return closeTrustList(server, sessionId, sessionHandle, methodId, methodContext, objectId, objectContext,
+                             inputSize, input, outputSize, output);
+    }
+
+    UA_LOG_ERROR(server->config.logging, UA_LOGCATEGORY_SERVER,
+                 "File type functions are currently only supported for TrustList types");
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
+}
+
+static UA_StatusCode
+getPositionFile(UA_Server *server,
+         const UA_NodeId *sessionId, void *sessionHandle,
+         const UA_NodeId *methodId, void *methodContext,
+         const UA_NodeId *objectId, void *objectContext,
+         size_t inputSize, const UA_Variant *input,
+         size_t outputSize, UA_Variant *output) {
+
+    const UA_Node *object = UA_NODESTORE_GET(server, objectId);
+    const UA_Node *objectType = getNodeType(server, &object->head);
+
+    UA_NodeId trustListType = UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE);
+    if(UA_NodeId_equal(&objectType->head.nodeId, &trustListType)) {
+        return getPositionTrustList(server, sessionId, sessionHandle, methodId, methodContext, objectId, objectContext,
+                                    inputSize, input, outputSize, output);
+    }
+
+    UA_LOG_ERROR(server->config.logging, UA_LOGCATEGORY_SERVER,
+                 "File type functions are currently only supported for TrustList types");
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
+}
+
+static UA_StatusCode
+setPositionFile(UA_Server *server,
+         const UA_NodeId *sessionId, void *sessionHandle,
+         const UA_NodeId *methodId, void *methodContext,
+         const UA_NodeId *objectId, void *objectContext,
+         size_t inputSize, const UA_Variant *input,
+         size_t outputSize, UA_Variant *output) {
+
+    const UA_Node *object = UA_NODESTORE_GET(server, objectId);
+    const UA_Node *objectType = getNodeType(server, &object->head);
+
+    UA_NodeId trustListType = UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE);
+    if(UA_NodeId_equal(&objectType->head.nodeId, &trustListType)) {
+        return setPositionTrustList(server, sessionId, sessionHandle, methodId, methodContext, objectId, objectContext,
+                                    inputSize, input, outputSize, output);
+    }
+
+    UA_LOG_ERROR(server->config.logging, UA_LOGCATEGORY_SERVER,
+                 "File type functions are currently only supported for TrustList types");
+    return UA_STATUSCODE_BADNOTIMPLEMENTED;
+}
+
 UA_StatusCode
 initNS0PushManagement(UA_Server *server) {
     UA_LOCK_ASSERT(&server->serviceMutex, 1);
@@ -883,9 +1015,6 @@ initNS0PushManagement(UA_Server *server) {
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_ADDCERTIFICATE), removeCertificate);
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE_REMOVECERTIFICATE), removeCertificate);
 
-    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_OPEN), openTrustList);
-    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_OPEN), openTrustList);
-
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_OPENWITHMASKS), openTrustListWithMask);
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_OPENWITHMASKS), openTrustListWithMask);
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE_OPENWITHMASKS), openTrustListWithMask);
@@ -895,64 +1024,91 @@ initNS0PushManagement(UA_Server *server) {
     retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_TRUSTLISTTYPE_CLOSEANDUPDATE), closeAndUpdateTrustList);
 
 
+    UA_MethodAttributes attr = UA_MethodAttributes_default;
+    attr.executable = true;
+    attr.userExecutable = true;
+
+    /* Open */
+    attr.displayName = UA_LOCALIZEDTEXT("", "Open");
+    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_OPEN),true);
+    retval |= addMethodNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_OPEN),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT), UA_QUALIFIEDNAME(0, "Open"), &attr, openTrustList, 0, NULL, UA_NODEID_NULL, NULL,
+                            0, NULL, UA_NODEID_NULL, NULL, NULL, NULL);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_OPEN),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_OPEN_INPUTARGUMENTS), true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_OPEN),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_OPEN_OUTPUTARGUMENTS), true);
+
+    /* Read */
+    attr.displayName = UA_LOCALIZEDTEXT("", "Read");
     retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_READ),true);
-    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_READ), true);
+    retval |= addMethodNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_READ),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT), UA_QUALIFIEDNAME(0, "Read"), &attr, readTrustList, 0, NULL, UA_NODEID_NULL, NULL,
+                            0, NULL, UA_NODEID_NULL, NULL, NULL, NULL);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_READ),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_READ_INPUTARGUMENTS), true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_READ),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_READ_OUTPUTARGUMENTS), true);
 
-    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_READ),true);
-    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_READ), true);
-
+    /* Write */
+    attr.displayName = UA_LOCALIZEDTEXT("", "Write");
     retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_WRITE),true);
-    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_WRITE), true);
-
-    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_WRITE),true);
-    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_WRITE), true);
+    retval |= addMethodNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_WRITE),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT), UA_QUALIFIEDNAME(0, "Write"), &attr, writeTrustList, 0, NULL, UA_NODEID_NULL, NULL,
+                            0, NULL, UA_NODEID_NULL, NULL, NULL, NULL);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_WRITE),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_WRITE_INPUTARGUMENTS), true);
 
     /* Close */
+    attr.displayName = UA_LOCALIZEDTEXT("", "Close");
     retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_CLOSE),true);
-    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_CLOSE), true);
-
-    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_CLOSE),true);
-    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_CLOSE), true);
+    retval |= addMethodNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_CLOSE),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT), UA_QUALIFIEDNAME(0, "Close"), &attr, closeTrustList, 0, NULL, UA_NODEID_NULL, NULL,
+                            0, NULL, UA_NODEID_NULL, NULL, NULL, NULL);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_CLOSE),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_CLOSE_INPUTARGUMENTS), true);
 
     /* GetPosition */
+    attr.displayName = UA_LOCALIZEDTEXT("", "GetPosition");
     retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_GETPOSITION),true);
-    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_GETPOSITION), true);
-
-    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_GETPOSITION),true);
-    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_GETPOSITION), true);
+    retval |= addMethodNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_GETPOSITION),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT), UA_QUALIFIEDNAME(0, "GetPosition"), &attr, getPositionTrustList, 0, NULL, UA_NODEID_NULL, NULL,
+                            0, NULL, UA_NODEID_NULL, NULL, NULL, NULL);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_GETPOSITION),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_GETPOSITION_INPUTARGUMENTS), true);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_GETPOSITION),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_GETPOSITION_OUTPUTARGUMENTS), true);
 
     /* SetPosition */
+    attr.displayName = UA_LOCALIZEDTEXT("", "SetPosition");
     retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_SETPOSITION),true);
-    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_SETPOSITION), true);
+    retval |= addMethodNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_SETPOSITION),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST),
+                            UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT), UA_QUALIFIEDNAME(0, "SetPosition"), &attr, setPositionTrustList, 0, NULL, UA_NODEID_NULL, NULL,
+                            0, NULL, UA_NODEID_NULL, NULL, NULL, NULL);
+    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTAPPLICATIONGROUP_TRUSTLIST_SETPOSITION),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASPROPERTY),
+                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_SETPOSITION_INPUTARGUMENTS), true);
 
-    retval |= deleteNode(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST_SETPOSITION),true);
-    retval |= addRef(server, UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERCONFIGURATION_CERTIFICATEGROUPS_DEFAULTUSERTOKENGROUP_TRUSTLIST),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_HASCOMPONENT),
-                     UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_SETPOSITION), true);
-
-    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_READ), readTrustList);
-    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_WRITE), writeTrustList);
-    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_CLOSE), closeTrustList);
-    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_GETPOSITION), getPositionTrustList);
-    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_SETPOSITION), setPositionTrustList);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_OPEN), openFile);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_READ), readFile);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_WRITE), writeFile);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_CLOSE), closeFile);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_GETPOSITION), getPositionFile);
+    retval |= setMethodNode_callback(server, UA_NODEID_NUMERIC(0, UA_NS0ID_FILETYPE_SETPOSITION), setPositionFile);
 
     return retval;
 }
