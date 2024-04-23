@@ -1243,6 +1243,8 @@ UA_ServerConfig_setDefaultWithFilestore(UA_ServerConfig *conf,
             size_t keyLe2 = 0;
             UA_CertificateUtils_getKeySize(&certificates[1], &keyLe2);
             if(keyLen == keyLe2 || (keyLen > 256 && keyLe2 > 256) || (keyLen <= 128 && keyLe2 <= 128)) {
+                UA_LOG_ERROR(conf->logging, UA_LOGCATEGORY_SERVER,
+                     "Two certificates with the same key length are specified. There can only be one certificate for one key length.");
                 retval = UA_STATUSCODE_BADINTERNALERROR;
             } else {
                 if(keyLen < keyLe2) {
@@ -1258,6 +1260,8 @@ UA_ServerConfig_setDefaultWithFilestore(UA_ServerConfig *conf,
                 }
             }
         } else {
+            UA_LOG_ERROR(conf->logging, UA_LOGCATEGORY_SERVER,
+                    "Invalid Number of certificates. A maximum of two certificates can be specified.");
             retval = UA_STATUSCODE_BADINTERNALERROR;
         }
         UA_String_clear(&certStorePath);
