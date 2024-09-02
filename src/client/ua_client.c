@@ -250,7 +250,7 @@ UA_Client_clear(UA_Client *client) {
     UA_SecureChannel_clear(&client->channel);
 
     /* Free the namespace mapping */
-    UA_Array_delete(&client->namespaces, client->namespacesSize,
+    UA_Array_delete(client->namespaces, client->namespacesSize,
                     &UA_TYPES[UA_TYPES_STRING]);
     client->namespaces = NULL;
     client->namespacesSize = 0;
