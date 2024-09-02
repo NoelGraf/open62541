@@ -1278,6 +1278,9 @@ UA_StatusCode
 UA_NamespaceMapping_index2Uri(UA_NamespaceMapping *nm,
                               UA_UInt16 index, UA_String *uri);
 
+void
+UA_NamespaceMapping_delete(UA_NamespaceMapping *nm);
+
 /**
  * Binary Encoding/Decoding
  * ------------------------

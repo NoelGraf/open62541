@@ -2263,3 +2263,16 @@ UA_NamespaceMapping_index2Uri(UA_NamespaceMapping *nm, UA_UInt16 index, UA_Strin
     *uri = nm->namespaceUris[index];
     return UA_STATUSCODE_GOOD;
 }
+
+void
+UA_NamespaceMapping_delete(UA_NamespaceMapping *nm) {
+    if(!nm)
+        return;
+    UA_Array_delete(nm->namespaceUris, nm->namespaceUrisSize,
+                &UA_TYPES[UA_TYPES_STRING]);
+    UA_Array_delete(nm->local2remote, nm->local2remoteSize,
+            &UA_TYPES[UA_TYPES_UINT16]);
+    UA_Array_delete(nm->remote2local, nm->remote2localSize,
+            &UA_TYPES[UA_TYPES_UINT16]);
+    UA_free(nm);
+}
