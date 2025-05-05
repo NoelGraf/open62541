@@ -1288,7 +1288,6 @@ if(UA_ENABLE_NODESET_INJECTOR)
     set(UA_NODESETINJECTOR_HEADER_FILES "")
     set(UA_NODESETINJECTOR_EXAMPLE_NAMES "")
     set(UA_NODESETINJECTOR_TEST_NAMES "")
-    add_subdirectory(tools/nodeset_injector)
     list(APPEND lib_headers ${PROJECT_BINARY_DIR}/src_generated/open62541/nodesetinjector.h)
     list(APPEND lib_sources ${PROJECT_BINARY_DIR}/src_generated/open62541/nodesetinjector.c
                             ${UA_NODESETINJECTOR_SOURCE_FILES})
@@ -1560,5 +1559,6 @@ set_target_properties(open62541-generator-transport PROPERTIES FOLDER "open62541
 set_target_properties(open62541-generator-types PROPERTIES FOLDER "open62541/generators")
 
 if(UA_ENABLE_NODESET_INJECTOR)
+    add_subdirectory(tools/nodeset_injector)
     set_target_properties(open62541-generator-nodesetinjector PROPERTIES FOLDER "open62541/generators")
 endif()

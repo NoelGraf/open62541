@@ -253,6 +253,15 @@ function(ua_generate_datatypes)
                       SOURCES ${UA_GEN_DT_OUTPUT_DIR}/${UA_GEN_DT_NAME}_generated.c
                               ${UA_GEN_DT_OUTPUT_DIR}/${UA_GEN_DT_NAME}_generated.h)
     endif()
+
+    if(UA_GEN_DT_AUTOLOAD AND UA_ENABLE_NODESET_INJECTOR)
+        list(APPEND UA_NODESETINJECTOR_GENERATORS ${TARGET_NAME})
+        set(UA_NODESETINJECTOR_GENERATORS ${UA_NODESETINJECTOR_GENERATORS} PARENT_SCOPE)
+        list(APPEND UA_NODESETINJECTOR_SOURCE_FILES  ${PROJECT_BINARY_DIR}/src_generated/open62541/${UA_GEN_DT_NAME}_generated.c)
+        set(UA_NODESETINJECTOR_SOURCE_FILES ${UA_NODESETINJECTOR_SOURCE_FILES} PARENT_SCOPE)
+        list(APPEND UA_NODESETINJECTOR_HEADER_FILES  ${PROJECT_BINARY_DIR}/src_generated/open62541/${UA_GEN_DT_NAME}_generated.h)
+        set(UA_NODESETINJECTOR_HEADER_FILES ${UA_NODESETINJECTOR_HEADER_FILES} PARENT_SCOPE)
+    endif()
 endfunction()
 
 # --------------- Generate Nodeset ---------------------
@@ -480,6 +489,16 @@ function(ua_generate_nodeset)
                     add_dependencies(${TARGET_NAME}-autoinjection ${DEPEND}-autoinjection)
                 endif()
             endforeach()
+
+            list(APPEND UA_NODESETINJECTOR_GENERATORS ${TARGET_NAME})
+            set(UA_NODESETINJECTOR_GENERATORS ${UA_NODESETINJECTOR_GENERATORS} PARENT_SCOPE)
+
+            list(APPEND UA_NODESETINJECTOR_SOURCE_FILES  ${UA_GEN_NS_OUTPUT_DIR}/namespace${FILE_SUFFIX}.c)
+            set(UA_NODESETINJECTOR_SOURCE_FILES ${UA_NODESETINJECTOR_SOURCE_FILES} PARENT_SCOPE)
+
+            list(APPEND UA_NODESETINJECTOR_HEADER_FILES  ${UA_GEN_NS_OUTPUT_DIR}/namespace${FILE_SUFFIX}.h)
+            set(UA_NODESETINJECTOR_HEADER_FILES ${UA_NODESETINJECTOR_HEADER_FILES} PARENT_SCOPE)
+
         endif()
     endif()
 endfunction()
@@ -580,14 +599,13 @@ function(ua_generate_nodeset_and_datatypes)
     # create a file in the build directory.
     if("${UA_GEN_FILE_BSD}" STREQUAL "" AND NOT "${UA_GEN_FILE_CSV}" STREQUAL "")
         string(TOUPPER "${UA_GEN_NAME}" BSD_NAME)
-        set(UA_GEN_FILE_BSD "${PROJECT_BINARY_DIR}/bsd_files_gen/Opc.Ua.${BSD_NAME}.Types.bsd")
         file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/bsd_files_gen")
-        add_custom_command(COMMAND ${Python3_EXECUTABLE}
-                                   ${open62541_TOOLS_DIR}/generate_bsd.py
-                                   --xml ${UA_GEN_FILE_NS} ${UA_GEN_FILE_BSD}
-                           OUTPUT ${UA_GEN_FILE_BSD}
-                           DEPEND ${UA_GEN_FILE_NS}
-                                  ${open62541_TOOLS_DIR}/generate_bsd.py)
+        set(UA_GEN_FILE_BSD_TMP "${PROJECT_BINARY_DIR}/bsd_files_gen/Opc.Ua.${BSD_NAME}.Types.bsd")
+        execute_process(COMMAND ${Python3_EXECUTABLE} ${open62541_TOOLS_DIR}/generate_bsd.py
+                --xml ${UA_GEN_FILE_NS} ${UA_GEN_FILE_BSD_TMP})
+        if(EXISTS "${UA_GEN_FILE_BSD_TMP}")
+            set(UA_GEN_FILE_BSD "${UA_GEN_FILE_BSD_TMP}")
+        endif()
     endif()
 
     # All nodesets (besides ns0) depend on ns0
@@ -650,4 +668,8 @@ function(ua_generate_nodeset_and_datatypes)
                         DEPENDS_TARGET ${UA_GEN_DEPENDS}
                         OUTPUT_DIR "${UA_GEN_OUTPUT_DIR}"
                         TARGET_PREFIX "${UA_GEN_TARGET_PREFIX}")
+
+    set(UA_NODESETINJECTOR_GENERATORS ${UA_NODESETINJECTOR_GENERATORS} PARENT_SCOPE)
+    set(UA_NODESETINJECTOR_SOURCE_FILES ${UA_NODESETINJECTOR_SOURCE_FILES} PARENT_SCOPE)
+    set(UA_NODESETINJECTOR_HEADER_FILES ${UA_NODESETINJECTOR_HEADER_FILES} PARENT_SCOPE)
 endfunction()
