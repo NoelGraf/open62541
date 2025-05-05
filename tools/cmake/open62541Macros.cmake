@@ -469,10 +469,6 @@ function(ua_generate_nodeset)
         endif()
         if(NOT TARGET ${TARGET_NAME}-autoinjection)
             add_custom_target(${TARGET_NAME}-autoinjection
-                              COMMAND ${Python3_EXECUTABLE}
-                                      ${open62541_TOOLS_DIR}/nodeset_injector/generate_nodesetinjector_content.py
-                                      ${PROJECT_BINARY_DIR}/src_generated/open62541/nodesetinjector
-                                      "namespace${FILE_SUFFIX}"
                               DEPENDS ${UA_GEN_NS_OUTPUT_DIR}/namespace${FILE_SUFFIX}.c
                                       ${UA_GEN_NS_OUTPUT_DIR}/namespace${FILE_SUFFIX}.h)
             add_dependencies(${TARGET_NAME} open62541-generator-nodesetinjector)
