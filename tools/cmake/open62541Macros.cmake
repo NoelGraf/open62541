@@ -89,12 +89,6 @@ function(ua_generate_nodeid_header)
                       TARGET ${TARGET_NAME}
                       SOURCES ${UA_GEN_ID_OUTPUT_DIR}/${UA_GEN_ID_NAME}.h)
     endif()
-
-    # Add to the injector list
-    if(UA_GEN_ID_AUTOLOAD AND UA_ENABLE_NODESET_INJECTOR)
-        list(APPEND UA_NODESETINJECTOR_GENERATORS ${TARGET_NAME})
-        set_parent(UA_NODESETINJECTOR_GENERATORS)
-    endif()
 endfunction()
 
 # --------------- Generate Datatypes ---------------------
@@ -255,8 +249,6 @@ function(ua_generate_datatypes)
     endif()
 
     if(UA_GEN_DT_AUTOLOAD AND UA_ENABLE_NODESET_INJECTOR)
-        list(APPEND UA_NODESETINJECTOR_GENERATORS ${TARGET_NAME})
-        set(UA_NODESETINJECTOR_GENERATORS ${UA_NODESETINJECTOR_GENERATORS} PARENT_SCOPE)
         list(APPEND UA_NODESETINJECTOR_SOURCE_FILES  ${PROJECT_BINARY_DIR}/src_generated/open62541/${UA_GEN_DT_NAME}_generated.c)
         set(UA_NODESETINJECTOR_SOURCE_FILES ${UA_NODESETINJECTOR_SOURCE_FILES} PARENT_SCOPE)
         list(APPEND UA_NODESETINJECTOR_HEADER_FILES  ${PROJECT_BINARY_DIR}/src_generated/open62541/${UA_GEN_DT_NAME}_generated.h)
@@ -474,24 +466,8 @@ function(ua_generate_nodeset)
             add_dependencies(${TARGET_NAME} open62541-generator-nodesetinjector)
             add_dependencies(${TARGET_NAME} ${TARGET_NAME}-autoinjection)
 
-            # The dependency ensures that the generated code is in the correct
-            # order in the nodeset injector and that the required namespaces are
-            # loaded first. Otherwise it can happen that e.g. machinery is
-            # loaded before di, which does not work because machinery is based
-            # on di.
-            foreach(DEPEND ${UA_GEN_NS_DEPENDS_TARGET})
-                string(FIND ${DEPEND} "open62541-generator-ns" POS)
-                if(POS GREATER_EQUAL 0)
-                    add_dependencies(${TARGET_NAME}-autoinjection ${DEPEND}-autoinjection)
-                endif()
-            endforeach()
-
-            list(APPEND UA_NODESETINJECTOR_GENERATORS ${TARGET_NAME})
-            set(UA_NODESETINJECTOR_GENERATORS ${UA_NODESETINJECTOR_GENERATORS} PARENT_SCOPE)
-
             list(APPEND UA_NODESETINJECTOR_SOURCE_FILES  ${UA_GEN_NS_OUTPUT_DIR}/namespace${FILE_SUFFIX}.c)
             set(UA_NODESETINJECTOR_SOURCE_FILES ${UA_NODESETINJECTOR_SOURCE_FILES} PARENT_SCOPE)
-
             list(APPEND UA_NODESETINJECTOR_HEADER_FILES  ${UA_GEN_NS_OUTPUT_DIR}/namespace${FILE_SUFFIX}.h)
             set(UA_NODESETINJECTOR_HEADER_FILES ${UA_NODESETINJECTOR_HEADER_FILES} PARENT_SCOPE)
 
@@ -665,7 +641,6 @@ function(ua_generate_nodeset_and_datatypes)
                         OUTPUT_DIR "${UA_GEN_OUTPUT_DIR}"
                         TARGET_PREFIX "${UA_GEN_TARGET_PREFIX}")
 
-    set(UA_NODESETINJECTOR_GENERATORS ${UA_NODESETINJECTOR_GENERATORS} PARENT_SCOPE)
     set(UA_NODESETINJECTOR_SOURCE_FILES ${UA_NODESETINJECTOR_SOURCE_FILES} PARENT_SCOPE)
     set(UA_NODESETINJECTOR_HEADER_FILES ${UA_NODESETINJECTOR_HEADER_FILES} PARENT_SCOPE)
 endfunction()
