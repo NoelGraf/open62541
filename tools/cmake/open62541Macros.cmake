@@ -5,7 +5,7 @@ macro(set_default VAR DEFAULT)
 endmacro()
 
 macro(set_parent VAR)
-    set(VAR "${${VAR}}" PARENT_SCOPE)
+    set(${VAR} "${${VAR}}" PARENT_SCOPE)
 endmacro()
 
 # In a local dev environment, manually set the variables from open62541Config.cmake
@@ -95,6 +95,7 @@ function(ua_generate_nodeid_header)
         if(NOT UA_ENABLE_NODESET_INJECTOR)
             message(FATAL_ERROR "The AUTOLOAD flag requires the Nodesetinjector feature to be enabled")
         endif()
+        add_dependencies(open62541-generator-nodesetinjector ${TARGET_NAME})
         list(APPEND UA_NODESETINJECTOR_SOURCE_FILES ${UA_GEN_ID_OUTPUT_DIR}/${UA_GEN_ID_NAME}.h)
         set_parent(UA_NODESETINJECTOR_SOURCE_FILES)
     endif()
@@ -255,6 +256,17 @@ function(ua_generate_datatypes)
                       TARGET ${TARGET_NAME}
                       SOURCES ${UA_GEN_DT_OUTPUT_DIR}/${UA_GEN_DT_NAME}_generated.c
                               ${UA_GEN_DT_OUTPUT_DIR}/${UA_GEN_DT_NAME}_generated.h)
+    endif()
+
+    # Add to the injector list
+    if(UA_GEN_DT_AUTOLOAD)
+        if(NOT UA_ENABLE_NODESET_INJECTOR)
+            message(FATAL_ERROR "The AUTOLOAD flag requires the Nodesetinjector feature to be enabled")
+        endif()
+        add_dependencies(open62541-generator-nodesetinjector ${TARGET_NAME})
+        list(APPEND UA_NODESETINJECTOR_SOURCE_FILES ${PROJECT_BINARY_DIR}/src_generated/open62541/${UA_GEN_DT_NAME}_generated.c
+                                                    ${PROJECT_BINARY_DIR}/src_generated/open62541/${UA_GEN_DT_NAME}_generated.h)
+        set_parent(UA_NODESETINJECTOR_SOURCE_FILES)
     endif()
 endfunction()
 
@@ -461,6 +473,7 @@ function(ua_generate_nodeset)
         if(NOT UA_ENABLE_NODESET_INJECTOR)
             message(FATAL_ERROR "The AUTOLOAD flag requires the Nodesetinjector feature to be enabled")
         endif()
+        add_dependencies(open62541-generator-nodesetinjector ${TARGET_NAME})
         list(APPEND UA_NODESETINJECTOR_SOURCE_FILES ${TARGET_SOURCES})
         set_parent(UA_NODESETINJECTOR_SOURCE_FILES)
     endif()
@@ -562,14 +575,13 @@ function(ua_generate_nodeset_and_datatypes)
     # create a file in the build directory.
     if("${UA_GEN_FILE_BSD}" STREQUAL "" AND NOT "${UA_GEN_FILE_CSV}" STREQUAL "")
         string(TOUPPER "${UA_GEN_NAME}" BSD_NAME)
-        set(UA_GEN_FILE_BSD "${PROJECT_BINARY_DIR}/bsd_files_gen/Opc.Ua.${BSD_NAME}.Types.bsd")
         file(MAKE_DIRECTORY "${PROJECT_BINARY_DIR}/bsd_files_gen")
-        add_custom_command(COMMAND ${Python3_EXECUTABLE}
-                                   ${open62541_TOOLS_DIR}/generate_bsd.py
-                                   --xml ${UA_GEN_FILE_NS} ${UA_GEN_FILE_BSD}
-                           OUTPUT ${UA_GEN_FILE_BSD}
-                           DEPEND ${UA_GEN_FILE_NS}
-                                  ${open62541_TOOLS_DIR}/generate_bsd.py)
+        set(UA_GEN_FILE_BSD_TMP "${PROJECT_BINARY_DIR}/bsd_files_gen/Opc.Ua.${BSD_NAME}.Types.bsd")
+        execute_process(COMMAND ${Python3_EXECUTABLE} ${open62541_TOOLS_DIR}/generate_bsd.py
+                                --xml ${UA_GEN_FILE_NS} ${UA_GEN_FILE_BSD_TMP})
+        if(EXISTS "${UA_GEN_FILE_BSD_TMP}")
+            set(UA_GEN_FILE_BSD "${UA_GEN_FILE_BSD_TMP}")
+        endif()
     endif()
 
     # All nodesets (besides ns0) depend on ns0
@@ -632,4 +644,6 @@ function(ua_generate_nodeset_and_datatypes)
                         DEPENDS_TARGET ${UA_GEN_DEPENDS}
                         OUTPUT_DIR "${UA_GEN_OUTPUT_DIR}"
                         TARGET_PREFIX "${UA_GEN_TARGET_PREFIX}")
+
+    set_parent(UA_NODESETINJECTOR_SOURCE_FILES)
 endfunction()

@@ -1276,12 +1276,18 @@ add_custom_target(open62541-code-generation DEPENDS open62541-generator-types
 if(UA_ENABLE_NODESET_INJECTOR)
     message(STATUS "Nodesetinjector feature enabled")
     set(UA_NODESETINJECTOR_SOURCE_FILES "") # List is appended from within ua_generate_nodeset
+
+    add_custom_target(open62541-generator-nodesetinjector)
+    add_dependencies(open62541-code-generation open62541-generator-nodesetinjector)
+
     add_subdirectory(tools/nodeset_injector)
     add_custom_command(OUTPUT ${PROJECT_BINARY_DIR}/src_generated/open62541/nodesetinjector.h
                               ${PROJECT_BINARY_DIR}/src_generated/open62541/nodesetinjector.c
                        COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/nodeset_injector/generate_nodesetinjector.py
                                                      ${PROJECT_BINARY_DIR}/src_generated/open62541/nodesetinjector
                                                      ${UA_INFORMATION_MODEL_AUTOLOAD})
+
+    set_source_files_properties(${UA_NODESETINJECTOR_SOURCE_FILES} PROPERTIES GENERATED 1)
     list(APPEND lib_headers ${PROJECT_BINARY_DIR}/src_generated/open62541/nodesetinjector.h)
     list(APPEND lib_sources ${PROJECT_BINARY_DIR}/src_generated/open62541/nodesetinjector.c
                             ${UA_NODESETINJECTOR_SOURCE_FILES})
