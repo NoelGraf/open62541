@@ -14,7 +14,7 @@ parser.add_argument('nodesets', nargs='+', help='List of Nodesets')
 args = parser.parse_args()
 
 # Normalize to lower case letters
-nodesets = [ns.lower() for ns in args.nodesets]
+nodesets = [ns.lower().replace('-', '_') for ns in args.nodesets]
 
 fh = open(args.outfile + ".h", "w", encoding='utf8')
 fc = open(args.outfile + ".c", "w", encoding='utf8')
