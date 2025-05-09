@@ -611,10 +611,6 @@ static UA_StatusCode defaultNetifPoll(UA_EventLoopLWIP *el) {
 }
 
 static void defaultNetifShutdown(UA_EventLoopLWIP *el) {
-    LOCK_TCPIP_CORE();
-    netif_set_down(&el->netif);
-    netif_remove(&el->netif);
-    UNLOCK_TCPIP_CORE();
 }
 
 #endif
