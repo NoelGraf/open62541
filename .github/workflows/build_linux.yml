@@ -92,7 +92,7 @@ jobs:
             build:
               name: "Debug Build & Unit Tests (clang-18)"
               cmd_deps: sudo apt-get install -y -qq clang-18 clang-tools-18 && sudo sysctl -w vm.mmap_rnd_bits=28
-              cmd_action: CC=clang-18 CXX=clang++-18 unit_tests          
+              cmd_action: CFLAGS="$CFLAGS -Wno-gnu-offsetof-extensions" CXXFLAGS="$CXXFLAGS -Wno-gnu-offsetof-extensions" CC=clang-18 CXX=clang++-18 unit_tests
           
           # TPM Tool Builds for specific Ubuntu versions
           - os: ubuntu-20.04

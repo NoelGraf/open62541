@@ -30,7 +30,7 @@
 
 {
    possible_tls_allocation_loss
-   Memcheck:PossibleLeak
+   Memcheck:Leak
    match-leak-kinds: possible
    fun:calloc
    fun:allocate_dtv
