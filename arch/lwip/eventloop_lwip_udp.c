@@ -290,8 +290,13 @@ getConnectionInfoFromParams(const UA_KeyValueMap *params,
      * TODO: Make this non-blocking */
     struct addrinfo hints;
     memset(&hints, 0, sizeof(struct addrinfo));
-    hints.ai_family = AF_UNSPEC;
+#if UA_IPV6
+    hints.ai_family = AF_UNSPEC; /* Allow IPv4 and IPv6 */
+#else
+    hints.ai_family = AF_INET;   /* IPv4 only */
+#endif
     hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
     int error = UA_getaddrinfo(hostname, portStr, &hints, info);
     if(error != 0) {
         UA_LOG_SOCKET_ERRNO_GAI_WRAP(
