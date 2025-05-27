@@ -284,7 +284,7 @@ jobs:
         shell: bash
         run: source tools/ci/ci.sh && ${{ matrix.build.cmd_action }}
         env:
-          ETHERNET_INTERFACE: eth0
+          ETHERNET_INTERFACE: tap0
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
