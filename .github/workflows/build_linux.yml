@@ -59,6 +59,8 @@ jobs:
               
               export PRECONFIGURED_TAPIF=tap0
               echo 'export PRECONFIGURED_TAPIF=tap0' >> ~/.bashrc
+              
+              ifconfig
             cmd_action: unit_tests_lwip
 
 #          - name: "Debug Build & Unit Tests without Subscriptions (gcc)"
