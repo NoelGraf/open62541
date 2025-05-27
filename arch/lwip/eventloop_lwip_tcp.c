@@ -563,6 +563,11 @@ TCP_registerListenSockets(UA_LWIPConnectionManager *pcm, const char *hostname,
     UA_StatusCode total_result = UA_INT32_MAX;
     struct addrinfo *ai = res;
     while(ai) {
+        char ipstr[INET6_ADDRSTRLEN];
+        struct sockaddr_in *ipv4 = (struct sockaddr_in *)ai->ai_addr;
+        inet_ntop(AF_INET, &(ipv4->sin_addr), ipstr, sizeof(ipstr));
+        UA_LOG_DEBUG(pcm->cm.eventSource.eventLoop->logger, UA_LOGCATEGORY_NETWORK, "IPv4 Address (Passive): %s", ipstr);
+
         total_result &= TCP_registerListenSocket(pcm, ai, hostname, port, application, context,
                                                  connectionCallback, validate, reuseaddr);
         ai = ai->ai_next;
@@ -827,6 +832,11 @@ TCP_openActiveConnection(UA_LWIPConnectionManager *pcm, const UA_KeyValueMap *pa
                        hostname, strerror(error));
         return UA_STATUSCODE_BADINTERNALERROR;
     }
+
+    char ipstr[INET6_ADDRSTRLEN];
+    struct sockaddr_in *ipv4 = (struct sockaddr_in *)info->ai_addr;
+    inet_ntop(AF_INET, &(ipv4->sin_addr), ipstr, sizeof(ipstr));
+    UA_LOG_DEBUG(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK, "IPv4 Address (Active): %s", ipstr);
 
     /* Create a socket */
     UA_FD newSock = UA_socket(info->ai_family, info->ai_socktype, info->ai_protocol);
