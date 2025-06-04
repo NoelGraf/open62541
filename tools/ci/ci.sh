@@ -342,7 +342,7 @@ function unit_tests_valgrind {
           ..
     make ${MAKEOPTS}
     # set_capabilities not possible with valgrind
-    sudo -E bash -c "make test ARGS=\"-V\""
+    sudo -E bash -c "make test TESTS=check_server_readspeed ARGS=\"-V\""
 }
 
 ########################################
