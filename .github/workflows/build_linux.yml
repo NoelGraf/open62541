@@ -212,7 +212,7 @@ jobs:
     name: ${{ matrix.os }}-${{ matrix.build.name }}
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: ${{ matrix.build.runs_on == '' || matrix.build.runs_on == matrix.os }}
         with:
           submodules: true
